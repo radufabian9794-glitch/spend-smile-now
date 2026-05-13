@@ -467,6 +467,19 @@ function Dashboard() {
     navigate({ to: "/auth" });
   };
 
+  const changePassword = async () => {
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword !== confirmPassword) return toast.error("Passwords don't match");
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPwSaving(false);
+    if (error) return toast.error(error.message);
+    setNewPassword("");
+    setConfirmPassword("");
+    setAccountOpen(false);
+    toast.success("Password updated");
+  };
+
   if (!ready || !session) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading…</div>;
   }
