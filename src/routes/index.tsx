@@ -1296,6 +1296,16 @@ function Dashboard() {
               <div className="space-y-3 border-t pt-4">
                 <div className="text-sm font-medium">Change password</div>
                 <div className="space-y-2">
+                  <Label htmlFor="current-pw">Current password</Label>
+                  <Input
+                    id="current-pw"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="new-pw">New password</Label>
                   <Input
                     id="new-pw"
