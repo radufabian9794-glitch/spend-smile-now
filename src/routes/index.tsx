@@ -299,6 +299,7 @@ function Dashboard() {
         groups.set(key, { display: cleaned, total: Number(e.amount), count: 1 });
       }
     }
+    const denom = filtered.reduce((s, e) => s + Number(e.amount), 0);
     return Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, TOP_MERCHANTS)
@@ -307,6 +308,7 @@ function Dashboard() {
         total: g.total,
         count: g.count,
         avg: g.count > 0 ? g.total / g.count : 0,
+        pct: denom > 0 ? (g.total / denom) * 100 : 0,
       }));
   }, [filtered]);
 
