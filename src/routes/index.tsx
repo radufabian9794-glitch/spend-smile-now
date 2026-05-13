@@ -299,6 +299,7 @@ function Dashboard() {
         groups.set(key, { display: cleaned, total: Number(e.amount), count: 1 });
       }
     }
+    const denom = filtered.reduce((s, e) => s + Number(e.amount), 0);
     return Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, TOP_MERCHANTS)
@@ -307,6 +308,7 @@ function Dashboard() {
         total: g.total,
         count: g.count,
         avg: g.count > 0 ? g.total / g.count : 0,
+        pct: denom > 0 ? (g.total / denom) * 100 : 0,
       }));
   }, [filtered]);
 
@@ -547,8 +549,9 @@ function Dashboard() {
                     formatter={(v: number, _n, item) => {
                       const count = Number(item?.payload?.count ?? 0);
                       const avg = Number(item?.payload?.avg ?? 0);
+                      const pct = Number(item?.payload?.pct ?? 0);
                       return [
-                        `$${Number(v).toFixed(2)} total · avg $${avg.toFixed(2)}`,
+                        `$${Number(v).toFixed(2)} total · ${pct.toFixed(1)}% of spend · avg $${avg.toFixed(2)}`,
                         `${count} payment${count === 1 ? "" : "s"}`,
                       ];
                     }}
@@ -561,9 +564,9 @@ function Dashboard() {
                   />
                   <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]}>
                     <LabelList
-                      dataKey="avg"
+                      dataKey="pct"
                       position="right"
-                      formatter={(v: number) => `avg $${Number(v).toFixed(2)}`}
+                      formatter={(v: number) => `${Number(v).toFixed(1)}%`}
                       style={{ fill: "var(--muted-foreground)", fontSize: 11 }}
                     />
                   </Bar>
