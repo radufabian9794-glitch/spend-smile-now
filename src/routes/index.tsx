@@ -800,7 +800,7 @@ function CategoryRow({
   onDelete,
 }: {
   category: Category;
-  onSave: (patch: { name?: string; color?: string }) => Promise<void>;
+  onSave: (patch: { name?: string; color?: string }) => Promise<unknown>;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(category.name);
