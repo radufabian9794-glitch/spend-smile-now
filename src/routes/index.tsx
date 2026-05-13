@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2 } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
@@ -60,6 +60,43 @@ function Dashboard() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // edit
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (e: Expense) => {
+    setEditing(e);
+    setEditAmount(String(e.amount));
+    setEditDate(e.payment_date);
+    setEditDescription(e.description ?? "");
+  };
+
+  const saveEdit = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!editing) return;
+    const amt = Number(editAmount);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    setEditSaving(true);
+    const { data, error } = await supabase
+      .from("expenses")
+      .update({
+        amount: amt,
+        payment_date: editDate,
+        description: editDescription.trim() || null,
+      })
+      .eq("id", editing.id)
+      .select()
+      .single();
+    setEditSaving(false);
+    if (error) return toast.error(error.message);
+    setExpenses((prev) => prev.map((x) => (x.id === editing.id ? (data as Expense) : x)));
+    setEditing(null);
+    toast.success("Payment updated");
+  };
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -239,6 +276,9 @@ function Dashboard() {
                   {e.description && <p className="text-sm text-muted-foreground truncate">{e.description}</p>}
                 </div>
                 <p className="font-semibold tabular-nums">${Number(e.amount).toFixed(2)}</p>
+                <Button variant="ghost" size="icon" onClick={() => openEdit(e)} aria-label="Edit">
+                  <Pencil className="size-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => removeExpense(e.id)} aria-label="Delete">
                   <Trash2 className="size-4" />
                 </Button>
@@ -246,6 +286,33 @@ function Dashboard() {
             ))
           )}
         </Card>
+
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit payment{editing ? ` · ${editing.type}` : ""}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={saveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Input id="edit-amount" type="number" step="0.01" min="0" required value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Date</Label>
+                  <Input id="edit-date" type="date" required value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-desc">Description <span className="text-muted-foreground">(optional)</span></Label>
+                <Textarea id="edit-desc" rows={2} maxLength={500} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={editSaving}>{editSaving ? "Saving..." : "Save changes"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
