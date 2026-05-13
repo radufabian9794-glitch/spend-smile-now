@@ -373,8 +373,17 @@ function Dashboard() {
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byMonth} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="var(--muted-foreground)" />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
                   <Tooltip
                     cursor={{ fill: "var(--accent)", opacity: 0.3 }}
                     formatter={(v: number) => `$${Number(v).toFixed(2)}`}
