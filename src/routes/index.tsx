@@ -276,6 +276,18 @@ function Dashboard() {
     );
   }, [filtered]);
 
+  const merchantSuggestions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of expenses) {
+      const m = e.merchant?.trim();
+      if (!m) continue;
+      counts.set(m, (counts.get(m) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name]) => name);
+  }, [expenses]);
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
@@ -495,7 +507,7 @@ function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
-                  <Input id="merchant" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
+                  <Input id="merchant" list="merchant-suggestions" autoComplete="off" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="desc">Description <span className="text-muted-foreground">(optional)</span></Label>
@@ -634,7 +646,7 @@ function Dashboard() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
-                <Input id="edit-merchant" maxLength={120} value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
+                <Input id="edit-merchant" list="merchant-suggestions" autoComplete="off" maxLength={120} value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-desc">Description <span className="text-muted-foreground">(optional)</span></Label>
@@ -654,6 +666,12 @@ function Dashboard() {
           categories={categories}
           onChanged={loadCategories}
         />
+
+        <datalist id="merchant-suggestions">
+          {merchantSuggestions.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
       </main>
     </div>
   );
@@ -702,7 +720,7 @@ function ManageCategoriesDialog({
   onOpenChange: (v: boolean) => void;
   userId: string;
   categories: Category[];
-  onChanged: () => Promise<void> | void;
+  onChanged: () => Promise<unknown> | unknown;
 }) {
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
@@ -788,7 +806,7 @@ function CategoryRow({
   onDelete,
 }: {
   category: Category;
-  onSave: (patch: { name?: string; color?: string }) => Promise<void>;
+  onSave: (patch: { name?: string; color?: string }) => Promise<unknown>;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(category.name);
