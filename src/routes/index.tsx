@@ -73,6 +73,8 @@ function Dashboard() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [search, setSearch] = useState("");
+  const [filterMin, setFilterMin] = useState("");
+  const [filterMax, setFilterMax] = useState("");
 
   const openEdit = (e: Expense) => {
     setEditing(e);
@@ -144,17 +146,22 @@ function Dashboard() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const min = filterMin === "" ? null : Number(filterMin);
+    const max = filterMax === "" ? null : Number(filterMax);
     return expenses.filter((e) => {
       if (filterType !== "all" && e.type !== filterType) return false;
       if (filterFrom && e.payment_date < filterFrom) return false;
       if (filterTo && e.payment_date > filterTo) return false;
+      const amt = Number(e.amount);
+      if (min !== null && !Number.isNaN(min) && amt < min) return false;
+      if (max !== null && !Number.isNaN(max) && amt > max) return false;
       if (q) {
         const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [expenses, filterType, filterFrom, filterTo, search]);
+  }, [expenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
 
   const filteredTotal = useMemo(
     () => filtered.reduce((s, e) => s + Number(e.amount), 0),
@@ -162,12 +169,14 @@ function Dashboard() {
   );
 
   const filtersActive =
-    filterType !== "all" || !!filterFrom || !!filterTo || !!search.trim();
+    filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
     setFilterType("all");
     setFilterFrom("");
     setFilterTo("");
+    setFilterMin("");
+    setFilterMax("");
     setSearch("");
   };
 
@@ -320,6 +329,30 @@ function Dashboard() {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">To</Label>
               <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Min amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={filterMin}
+                onChange={(e) => setFilterMin(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Max amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="No limit"
+                value={filterMax}
+                onChange={(e) => setFilterMax(e.target.value)}
+              />
             </div>
           </div>
           {filtersActive && (
