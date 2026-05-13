@@ -36,6 +36,14 @@ import { toast } from "sonner";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -469,10 +477,23 @@ function Dashboard() {
             <h1 className="text-xl font-bold tracking-tight">Spendly</h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground hidden sm:block">{session.user.email}</span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
-              <LogOut className="size-4 mr-1" /> Sign out
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="text-sm text-muted-foreground hidden sm:inline-flex items-center rounded-md px-2 py-1 hover:text-foreground hover:bg-muted/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {session.user.email}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="truncate">{session.user.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => void signOut()}>
+                  <LogOut className="size-4 mr-2" /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="icon"
