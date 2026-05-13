@@ -686,7 +686,7 @@ function Dashboard() {
     setPwSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setPwSaving(false);
-    if (error) return toast.error(friendlyDbError(error));
+    if (error) return toast.error(error.message);
     setNewPassword("");
     setConfirmPassword("");
     setAccountOpen(false);
