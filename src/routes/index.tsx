@@ -396,22 +396,54 @@ function Dashboard() {
     toast.success("Payment added");
   };
 
-  const removeExpense = async (id: string) => {
+  const restoreExpense = async (exp: Expense) => {
+    const userId = session?.user.id;
+    if (!userId) return toast.error("Not signed in");
+    setExpenses((cur) =>
+      [exp, ...cur.filter((e) => e.id !== exp.id)].sort((a, b) =>
+        a.payment_date < b.payment_date ? 1 : a.payment_date > b.payment_date ? -1 : 0,
+      ),
+    );
+    const { error } = await supabase.from("expenses").insert({
+      id: exp.id,
+      user_id: userId,
+      type: exp.type,
+      amount: exp.amount,
+      payment_date: exp.payment_date,
+      description: exp.description,
+      merchant: exp.merchant,
+    });
+    if (error) {
+      setExpenses((cur) => cur.filter((e) => e.id !== exp.id));
+      toast.error("Couldn't restore payment");
+    } else {
+      toast.success("Payment restored");
+    }
+  };
+
+  const removeExpense = async (exp: Expense) => {
     const prev = expenses;
-    setExpenses(expenses.filter((e) => e.id !== id));
-    const { error } = await supabase.from("expenses").delete().eq("id", id);
+    setExpenses(expenses.filter((e) => e.id !== exp.id));
+    const { error } = await supabase.from("expenses").delete().eq("id", exp.id);
     if (error) {
       setExpenses(prev);
       toast.error(error.message);
     } else {
-      toast.success("Payment deleted");
+      toast.success("Payment deleted", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void restoreExpense(exp);
+          },
+        },
+      });
     }
   };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
-    await removeExpense(pendingDelete.id);
+    await removeExpense(pendingDelete);
     setDeleting(false);
     setPendingDelete(null);
   };
