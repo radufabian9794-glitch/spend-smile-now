@@ -284,6 +284,7 @@ function Dashboard() {
         type,
         amount: amt,
         payment_date: date,
+        merchant: merchant.trim() || null,
         description: description.trim() || null,
       })
       .select()
@@ -293,6 +294,7 @@ function Dashboard() {
     setExpenses((prev) => [data as Expense, ...prev]);
     setOpen(false);
     setAmount("");
+    setMerchant("");
     setDescription("");
     toast.success("Payment added");
   };
