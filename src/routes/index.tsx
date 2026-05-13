@@ -507,6 +507,7 @@ function Dashboard() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         <Card className="p-4 space-y-3">
