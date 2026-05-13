@@ -142,6 +142,35 @@ function Dashboard() {
       .reduce((s, e) => s + Number(e.amount), 0);
   }, [expenses]);
 
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return expenses.filter((e) => {
+      if (filterType !== "all" && e.type !== filterType) return false;
+      if (filterFrom && e.payment_date < filterFrom) return false;
+      if (filterTo && e.payment_date > filterTo) return false;
+      if (q) {
+        const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [expenses, filterType, filterFrom, filterTo, search]);
+
+  const filteredTotal = useMemo(
+    () => filtered.reduce((s, e) => s + Number(e.amount), 0),
+    [filtered]
+  );
+
+  const filtersActive =
+    filterType !== "all" || !!filterFrom || !!filterTo || !!search.trim();
+
+  const clearFilters = () => {
+    setFilterType("all");
+    setFilterFrom("");
+    setFilterTo("");
+    setSearch("");
+  };
+
   const addExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) return;
