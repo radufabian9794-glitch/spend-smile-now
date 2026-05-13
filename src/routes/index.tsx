@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
@@ -67,6 +67,12 @@ function Dashboard() {
   const [editDate, setEditDate] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // filters
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [search, setSearch] = useState("");
 
   const openEdit = (e: Expense) => {
     setEditing(e);
@@ -135,6 +141,35 @@ function Dashboard() {
       .filter((e) => e.payment_date.startsWith(ym))
       .reduce((s, e) => s + Number(e.amount), 0);
   }, [expenses]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return expenses.filter((e) => {
+      if (filterType !== "all" && e.type !== filterType) return false;
+      if (filterFrom && e.payment_date < filterFrom) return false;
+      if (filterTo && e.payment_date > filterTo) return false;
+      if (q) {
+        const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [expenses, filterType, filterFrom, filterTo, search]);
+
+  const filteredTotal = useMemo(
+    () => filtered.reduce((s, e) => s + Number(e.amount), 0),
+    [filtered]
+  );
+
+  const filtersActive =
+    filterType !== "all" || !!filterFrom || !!filterTo || !!search.trim();
+
+  const clearFilters = () => {
+    setFilterType("all");
+    setFilterFrom("");
+    setFilterTo("");
+    setSearch("");
+  };
 
   const addExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,13 +292,59 @@ function Dashboard() {
           </Dialog>
         </div>
 
+        <Card className="p-4 space-y-3">
+          <div className="relative">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by type or description…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Type</Label>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+            </div>
+          </div>
+          {filtersActive && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {filtered.length} match{filtered.length === 1 ? "" : "es"} · ${filteredTotal.toFixed(2)}
+              </span>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="size-4 mr-1" /> Clear
+              </Button>
+            </div>
+          )}
+        </Card>
+
         <Card className="divide-y">
           {expenses.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               No payments yet. Add your first one to get started.
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-10 text-center text-muted-foreground">
+              No payments match your filters.
+            </div>
           ) : (
-            expenses.map((e) => (
+            filtered.map((e) => (
               <div key={e.id} className="p-4 flex items-center gap-4">
                 <div className="size-10 rounded-lg bg-accent text-accent-foreground grid place-items-center text-xs font-semibold shrink-0">
                   {e.type.slice(0, 2).toUpperCase()}
