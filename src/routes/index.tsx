@@ -396,11 +396,37 @@ function Dashboard() {
       .map((g) => g.name);
   }, [expenses]);
 
+  const [flowMonth, setFlowMonth] = useState<string>(() =>
+    new Date().toISOString().slice(0, 7),
+  );
+
+  const availableFlowMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of expenses) set.add(e.payment_date.slice(0, 7));
+    set.add(new Date().toISOString().slice(0, 7));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [expenses]);
+
+  const flowMonthIncome = useMemo(
+    () =>
+      incomeExpenses
+        .filter((e) => e.payment_date.startsWith(flowMonth))
+        .reduce((s, e) => s + Number(e.amount), 0),
+    [incomeExpenses, flowMonth],
+  );
+  const flowMonthTotal = useMemo(
+    () =>
+      spendExpenses
+        .filter((e) => e.payment_date.startsWith(flowMonth))
+        .reduce((s, e) => s + Number(e.amount), 0),
+    [spendExpenses, flowMonth],
+  );
+
   const monthFlow = useMemo(() => {
-    const ym = new Date().toISOString().slice(0, 7);
+    const ym = flowMonth;
     const monthSpend = spendExpenses.filter((e) => e.payment_date.startsWith(ym));
-    const remaining = monthIncome - monthTotal;
-    if (monthSpend.length === 0 && monthIncome === 0) return null;
+    const remaining = flowMonthIncome - flowMonthTotal;
+    if (monthSpend.length === 0 && flowMonthIncome === 0) return null;
 
     const catTotals = new Map<string, number>();
     const catMerchant = new Map<string, Map<string, number>>();
@@ -428,7 +454,7 @@ function Dashboard() {
     };
 
     const links: { source: number; target: number; value: number }[] = [];
-    const sourceLabel = monthIncome > 0 ? "Income" : "Spending";
+    const sourceLabel = flowMonthIncome > 0 ? "Income" : "Spending";
     const incomeIdx = addNode("__income", sourceLabel, "income");
 
     const sortedCats = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1]);
@@ -445,14 +471,15 @@ function Dashboard() {
       }
     }
 
-    if (monthIncome > 0 && remaining > 0) {
+    if (flowMonthIncome > 0 && remaining > 0) {
       const rIdx = addNode("__remaining", "Remaining", "remaining");
       links.push({ source: incomeIdx, target: rIdx, value: remaining });
     }
 
     if (links.length === 0) return null;
     return { nodes, links };
-  }, [spendExpenses, monthIncome, monthTotal]);
+  }, [spendExpenses, flowMonth, flowMonthIncome, flowMonthTotal]);
+
 
   const [sankeyHover, setSankeyHover] = useState<
     | { kind: "node"; index: number }
@@ -755,11 +782,32 @@ function Dashboard() {
         </div>
 
         <Card className="p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="text-sm font-medium">Money flow this month</p>
-            <p className="text-xs text-muted-foreground">
-              {monthIncome > 0 ? "Income" : "Spending"} → categories → merchants
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <p className="text-sm font-medium">Money flow</p>
+              <p className="text-xs text-muted-foreground">
+                {flowMonthIncome > 0 ? "Income" : "Spending"} → categories → merchants
+              </p>
+            </div>
+            <Select value={flowMonth} onValueChange={setFlowMonth}>
+              <SelectTrigger className="w-[180px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableFlowMonths.map((ym) => {
+                  const [y, m] = ym.split("-");
+                  const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString(
+                    undefined,
+                    { month: "long", year: "numeric" },
+                  );
+                  return (
+                    <SelectItem key={ym} value={ym}>
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
           {!monthFlow ? (
             <div className="h-[320px] grid place-items-center text-sm text-muted-foreground">
@@ -818,7 +866,7 @@ function Dashboard() {
                     if (!active || !payload || !payload.length) return null;
                     const p: any = payload[0]?.payload?.payload ?? payload[0]?.payload ?? {};
                     const fmt = (v: number) => `$${Number(v ?? 0).toFixed(2)}`;
-                    const rootLabel = monthIncome > 0 ? "Income" : "Spending";
+                    const rootLabel = flowMonthIncome > 0 ? "Income" : "Spending";
                     let title = "";
                     let path: string[] = [];
                     let amount = 0;
@@ -887,7 +935,7 @@ function Dashboard() {
                   className="inline-block size-3 rounded-sm"
                   style={{ background: "var(--primary)" }}
                 />
-                <span>{monthIncome > 0 ? "Income" : "Spending"}</span>
+                <span>{flowMonthIncome > 0 ? "Income" : "Spending"}</span>
               </div>
               {monthFlow.nodes
                 .filter((n) => n.kind === "category")
