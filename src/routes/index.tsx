@@ -646,6 +646,14 @@ function Dashboard() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <ManageCategoriesDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          userId={session.user.id}
+          categories={categories}
+          onChanged={loadCategories}
+        />
       </main>
     </div>
   );
