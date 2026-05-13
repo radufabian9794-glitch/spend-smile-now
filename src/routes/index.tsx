@@ -714,7 +714,7 @@ function ManageCategoriesDialog({
   onOpenChange: (v: boolean) => void;
   userId: string;
   categories: Category[];
-  onChanged: () => Promise<void> | void;
+  onChanged: () => Promise<unknown> | unknown;
 }) {
   const [newName, setNewName] = useState("");
   const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
