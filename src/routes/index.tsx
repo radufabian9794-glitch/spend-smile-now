@@ -263,11 +263,6 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  const total = useMemo(
-    () => expenses.reduce((s, e) => s + Number(e.amount), 0),
-    [expenses]
-  );
-
   const spendExpenses = useMemo(
     () => expenses.filter((e) => e.type !== INCOME_TYPE),
     [expenses],
