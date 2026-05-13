@@ -589,10 +589,35 @@ function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">This month</p>
             <p className="text-3xl font-bold mt-1">${monthTotal.toFixed(2)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">Income this month</p>
+            <p className="text-3xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+              ${monthIncome.toFixed(2)}
+            </p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">Left this month</p>
+            <p
+              className={`text-3xl font-bold mt-1 ${
+                monthIncome === 0
+                  ? ""
+                  : leftThisMonth >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-destructive"
+              }`}
+            >
+              {monthIncome === 0 ? "—" : `$${leftThisMonth.toFixed(2)}`}
+            </p>
+            {monthIncome > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.min(100, Math.round((monthTotal / monthIncome) * 100))}% of income spent
+              </p>
+            )}
           </Card>
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">This year</p>
