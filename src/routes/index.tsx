@@ -37,6 +37,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 
 export const Route = createFileRoute("/")({
