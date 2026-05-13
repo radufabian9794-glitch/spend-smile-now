@@ -338,7 +338,7 @@ function Dashboard() {
         type,
         amount: amt,
         payment_date: date,
-        merchant: merchant.trim() || null,
+        merchant: cleanMerchant(merchant),
         description: description.trim() || null,
       })
       .select()
