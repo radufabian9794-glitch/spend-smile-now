@@ -454,6 +454,7 @@ function Dashboard() {
     return { nodes, links };
   }, [spendExpenses, monthIncome, monthTotal]);
 
+  const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
