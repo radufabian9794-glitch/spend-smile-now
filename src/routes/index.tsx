@@ -79,6 +79,7 @@ function Dashboard() {
   const [open, setOpen] = useState(false);
   const [dark, setDark] = useState(false);
 
+  // Initial theme from localStorage / system preference (pre-login paint)
   useEffect(() => {
     const stored = localStorage.getItem("theme");
     const prefers = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
@@ -87,11 +88,21 @@ function Dashboard() {
     document.documentElement.classList.toggle("dark", isDark);
   }, []);
 
-  const toggleDark = () => {
+  const applyTheme = (isDark: boolean) => {
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem("theme", isDark ? "dark" : "light");
+  };
+
+  const toggleDark = async () => {
     const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
+    applyTheme(next);
+    if (!session) return;
+    const { error } = await supabase
+      .from("profiles")
+      .update({ theme: next ? "dark" : "light" })
+      .eq("user_id", session.user.id);
+    if (error) toast.error("Couldn't save theme preference");
   };
 
   // form
@@ -170,6 +181,20 @@ function Dashboard() {
         if (error) return toast.error(error.message);
         setExpenses((data ?? []) as Expense[]);
       });
+  }, [session]);
+
+  // Load persisted theme from the user's profile
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from("profiles")
+      .select("theme")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.theme) applyTheme(data.theme === "dark");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const total = useMemo(
