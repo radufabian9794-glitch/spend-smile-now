@@ -564,7 +564,10 @@ function Dashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <p className="font-medium truncate">{e.type}</p>
+                    <p className="font-medium truncate">
+                      {e.type}
+                      {e.merchant && <span className="text-muted-foreground font-normal"> · {e.merchant}</span>}
+                    </p>
                     <p className="text-xs text-muted-foreground">{e.payment_date}</p>
                   </div>
                   {e.description && <p className="text-sm text-muted-foreground truncate">{e.description}</p>}
