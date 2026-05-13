@@ -283,6 +283,27 @@ function Dashboard() {
     );
   }, [filtered]);
 
+  const TOP_MERCHANTS = 7;
+  const byMerchant = useMemo(() => {
+    const groups = new Map<string, { display: string; total: number; count: number }>();
+    for (const e of filtered) {
+      const cleaned = cleanMerchant(e.merchant);
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      const existing = groups.get(key);
+      if (existing) {
+        existing.total += Number(e.amount);
+        existing.count += 1;
+      } else {
+        groups.set(key, { display: cleaned, total: Number(e.amount), count: 1 });
+      }
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, TOP_MERCHANTS)
+      .map((g) => ({ name: g.display, total: g.total, count: g.count }));
+  }, [filtered]);
+
   const merchantSuggestions = useMemo(() => {
     // Group by normalized key (case-insensitive, whitespace-collapsed),
     // and surface the most common original spelling as the display value.
@@ -481,6 +502,54 @@ function Dashboard() {
                     }}
                   />
                   <Bar dataKey="total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card className="p-5 lg:col-span-2">
+            <p className="text-sm font-medium mb-3">Top merchants by spend</p>
+            {byMerchant.length === 0 ? (
+              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
+                No merchant data to display
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(180, byMerchant.length * 38)}>
+                <BarChart
+                  data={byMerchant}
+                  layout="vertical"
+                  margin={{ top: 5, right: 16, left: 8, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                    tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "var(--accent)", opacity: 0.3 }}
+                    formatter={(v: number, _n, item) => [
+                      `$${Number(v).toFixed(2)}`,
+                      `${item?.payload?.count ?? 0} payment${item?.payload?.count === 1 ? "" : "s"}`,
+                    ]}
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      color: "var(--popover-foreground)",
+                    }}
+                  />
+                  <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
