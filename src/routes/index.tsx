@@ -583,11 +583,6 @@ function Dashboard() {
               <Tags className="size-4 mr-1" /> Categories
             </Button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="size-4 mr-1" /> Add payment
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>New payment</DialogTitle>
