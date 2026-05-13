@@ -146,17 +146,22 @@ function Dashboard() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const min = filterMin === "" ? null : Number(filterMin);
+    const max = filterMax === "" ? null : Number(filterMax);
     return expenses.filter((e) => {
       if (filterType !== "all" && e.type !== filterType) return false;
       if (filterFrom && e.payment_date < filterFrom) return false;
       if (filterTo && e.payment_date > filterTo) return false;
+      const amt = Number(e.amount);
+      if (min !== null && !Number.isNaN(min) && amt < min) return false;
+      if (max !== null && !Number.isNaN(max) && amt > max) return false;
       if (q) {
         const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [expenses, filterType, filterFrom, filterTo, search]);
+  }, [expenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
 
   const filteredTotal = useMemo(
     () => filtered.reduce((s, e) => s + Number(e.amount), 0),
@@ -164,12 +169,14 @@ function Dashboard() {
   );
 
   const filtersActive =
-    filterType !== "all" || !!filterFrom || !!filterTo || !!search.trim();
+    filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
     setFilterType("all");
     setFilterFrom("");
     setFilterTo("");
+    setFilterMin("");
+    setFilterMax("");
     setSearch("");
   };
 
