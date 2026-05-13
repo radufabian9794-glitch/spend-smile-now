@@ -226,7 +226,7 @@ function Dashboard() {
       if (min !== null && !Number.isNaN(min) && amt < min) return false;
       if (max !== null && !Number.isNaN(max) && amt > max) return false;
       if (q) {
-        const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
+        const hay = `${e.type} ${e.merchant ?? ""} ${e.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
