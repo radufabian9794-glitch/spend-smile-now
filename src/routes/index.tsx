@@ -301,7 +301,12 @@ function Dashboard() {
     return Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, TOP_MERCHANTS)
-      .map((g) => ({ name: g.display, total: g.total, count: g.count }));
+      .map((g) => ({
+        name: g.display,
+        total: g.total,
+        count: g.count,
+        avg: g.count > 0 ? g.total / g.count : 0,
+      }));
   }, [filtered]);
 
   const merchantSuggestions = useMemo(() => {
