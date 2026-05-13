@@ -149,6 +149,7 @@ function Dashboard() {
       .update({
         amount: amt,
         payment_date: editDate,
+        merchant: editMerchant.trim() || null,
         description: editDescription.trim() || null,
       })
       .eq("id", editing.id)
