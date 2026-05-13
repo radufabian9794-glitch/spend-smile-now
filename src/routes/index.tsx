@@ -283,6 +283,27 @@ function Dashboard() {
     );
   }, [filtered]);
 
+  const TOP_MERCHANTS = 7;
+  const byMerchant = useMemo(() => {
+    const groups = new Map<string, { display: string; total: number; count: number }>();
+    for (const e of filtered) {
+      const cleaned = cleanMerchant(e.merchant);
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      const existing = groups.get(key);
+      if (existing) {
+        existing.total += Number(e.amount);
+        existing.count += 1;
+      } else {
+        groups.set(key, { display: cleaned, total: Number(e.amount), count: 1 });
+      }
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, TOP_MERCHANTS)
+      .map((g) => ({ name: g.display, total: g.total, count: g.count }));
+  }, [filtered]);
+
   const merchantSuggestions = useMemo(() => {
     // Group by normalized key (case-insensitive, whitespace-collapsed),
     // and surface the most common original spelling as the display value.
