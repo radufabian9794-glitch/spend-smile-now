@@ -770,6 +770,60 @@ function Dashboard() {
             <Button variant="outline" onClick={() => setManageOpen(true)}>
               <Tags className="size-4 mr-1" /> Categories
             </Button>
+            <Button variant="outline" onClick={() => setIncomeOpen(true)}>
+              <TrendingUp className="size-4 mr-1" /> Income
+            </Button>
+            <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add income</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={addIncome} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="income-amount">Amount</Label>
+                      <Input
+                        id="income-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={incomeAmount}
+                        onChange={(e) => setIncomeAmount(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="income-date">Date</Label>
+                      <Input
+                        id="income-date"
+                        type="date"
+                        required
+                        value={incomeDate}
+                        onChange={(e) => setIncomeDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="income-desc">
+                      Source <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Textarea
+                      id="income-desc"
+                      rows={2}
+                      maxLength={500}
+                      placeholder="e.g. Salary, freelance"
+                      value={incomeDescription}
+                      onChange={(e) => setIncomeDescription(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={incomeSaving}>
+                      {incomeSaving ? "Saving..." : "Save income"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent>
               <DialogHeader>
