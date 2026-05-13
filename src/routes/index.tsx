@@ -134,6 +134,7 @@ function Dashboard() {
     setEditing(e);
     setEditAmount(String(e.amount));
     setEditDate(e.payment_date);
+    setEditMerchant(e.merchant ?? "");
     setEditDescription(e.description ?? "");
   };
 
