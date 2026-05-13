@@ -286,7 +286,6 @@ function Dashboard() {
             ))
           )}
         </Card>
-        </Card>
 
         <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
           <DialogContent>
