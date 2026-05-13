@@ -185,6 +185,26 @@ function Dashboard() {
       });
   }, [session]);
 
+  const loadCategories = async () => {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name, color")
+      .order("name", { ascending: true });
+    if (error) return toast.error(error.message);
+    const cats = (data ?? []) as Category[];
+    setCategories(cats);
+    setType((prev) => (cats.some((c) => c.name === prev) ? prev : cats[0]?.name ?? ""));
+  };
+
+  useEffect(() => {
+    if (!session) return;
+    void loadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
+  const colorFor = (name: string) =>
+    categories.find((c) => c.name === name)?.color ?? FALLBACK_COLOR;
+
   // Load persisted theme from the user's profile
   useEffect(() => {
     if (!session) return;
