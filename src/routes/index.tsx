@@ -682,12 +682,26 @@ function Dashboard() {
   };
 
   const changePassword = async () => {
+    if (!currentPassword) return toast.error("Enter your current password");
     if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
     if (newPassword !== confirmPassword) return toast.error("Passwords don't match");
+    if (newPassword === currentPassword)
+      return toast.error("New password must be different from the current one");
+    if (!session?.user.email) return toast.error("Missing account email");
     setPwSaving(true);
+    // Re-authenticate to confirm the requester actually knows the current password.
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: session.user.email,
+      password: currentPassword,
+    });
+    if (reauthError) {
+      setPwSaving(false);
+      return toast.error("Current password is incorrect");
+    }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setPwSaving(false);
     if (error) return toast.error(error.message);
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setAccountOpen(false);
