@@ -351,10 +351,10 @@ function Dashboard() {
                   <Tooltip
                     formatter={(v: number) => `$${Number(v).toFixed(2)}`}
                     contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
-                      color: "hsl(var(--popover-foreground))",
+                      color: "var(--popover-foreground)",
                     }}
                   />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
@@ -372,20 +372,29 @@ function Dashboard() {
             ) : (
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={byMonth} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
                   <Tooltip
-                    cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
+                    cursor={{ fill: "var(--accent)", opacity: 0.3 }}
                     formatter={(v: number) => `$${Number(v).toFixed(2)}`}
                     contentStyle={{
-                      background: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
                       borderRadius: 8,
-                      color: "hsl(var(--popover-foreground))",
+                      color: "var(--popover-foreground)",
                     }}
                   />
-                  <Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
