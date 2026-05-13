@@ -508,6 +508,9 @@ function Dashboard() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel className="truncate">{session.user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setAccountOpen(true)}>
+                  <Settings className="size-4 mr-2" /> Account settings
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void signOut()}>
                   <LogOut className="size-4 mr-2" /> Sign out
                 </DropdownMenuItem>
