@@ -110,6 +110,7 @@ function Dashboard() {
   const [type, setType] = useState("Food");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [merchant, setMerchant] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -117,6 +118,7 @@ function Dashboard() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [editMerchant, setEditMerchant] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
