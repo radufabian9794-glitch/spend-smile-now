@@ -302,6 +302,14 @@ function Dashboard() {
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="size-4 mr-1" /> Sign out
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDark}
+              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
           </div>
         </div>
       </header>
