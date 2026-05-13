@@ -522,7 +522,7 @@ function Dashboard() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All types</SelectItem>
-                  {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
