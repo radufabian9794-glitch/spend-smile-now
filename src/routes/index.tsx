@@ -866,7 +866,7 @@ function Dashboard() {
                     if (!active || !payload || !payload.length) return null;
                     const p: any = payload[0]?.payload?.payload ?? payload[0]?.payload ?? {};
                     const fmt = (v: number) => `$${Number(v ?? 0).toFixed(2)}`;
-                    const rootLabel = monthIncome > 0 ? "Income" : "Spending";
+                    const rootLabel = flowMonthIncome > 0 ? "Income" : "Spending";
                     let title = "";
                     let path: string[] = [];
                     let amount = 0;
