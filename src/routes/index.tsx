@@ -450,8 +450,12 @@ function Dashboard() {
           </Card>
         </div>
 
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Recent payments</h2>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setManageOpen(true)}>
+              <Tags className="size-4 mr-1" /> Categories
+            </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
