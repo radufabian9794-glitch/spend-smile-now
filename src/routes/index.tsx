@@ -393,8 +393,8 @@ function Dashboard() {
                     outerRadius={90}
                     paddingAngle={2}
                   >
-                    {byType.map((_, i) => (
-                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    {byType.map((entry) => (
+                      <Cell key={entry.name} fill={colorFor(entry.name)} />
                     ))}
                   </Pie>
                   <Tooltip
