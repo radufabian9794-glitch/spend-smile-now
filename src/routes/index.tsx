@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings, TrendingUp } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
