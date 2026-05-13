@@ -1291,14 +1291,72 @@ type SankeyNodeProps = {
   payload: { name: string; kind: SankeyNodeKind; value: number };
 };
 
+type SankeyLinkProps = {
+  sourceX: number;
+  targetX: number;
+  sourceY: number;
+  targetY: number;
+  sourceControlX: number;
+  targetControlX: number;
+  linkWidth: number;
+  index: number;
+  payload: {
+    source: number | { index: number };
+    target: number | { index: number };
+    value: number;
+  };
+  stroke?: string;
+  strokeOpacity?: number;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+};
+
+function SankeyLink({
+  sourceX,
+  targetX,
+  sourceY,
+  targetY,
+  sourceControlX,
+  targetControlX,
+  linkWidth,
+  stroke,
+  strokeOpacity,
+  onMouseEnter,
+  onMouseLeave,
+}: SankeyLinkProps) {
+  return (
+    <Layer>
+      <path
+        d={`M${sourceX},${sourceY}C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+        fill="none"
+        stroke={stroke}
+        strokeOpacity={strokeOpacity}
+        strokeWidth={linkWidth}
+        style={{ transition: "stroke-opacity 150ms, stroke 150ms", cursor: "pointer" }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      />
+    </Layer>
+  );
+}
+
 function SankeyNode({
   x,
   y,
   width,
   height,
+  index,
   payload,
   colorFor,
-}: SankeyNodeProps & { colorFor: (name: string) => string }) {
+  dim = false,
+  active = false,
+  onHover,
+}: SankeyNodeProps & {
+  colorFor: (name: string) => string;
+  dim?: boolean;
+  active?: boolean;
+  onHover?: (index: number, hovering: boolean) => void;
+}) {
   const isLeft = payload.kind === "income";
   const isRight = payload.kind === "merchant" || payload.kind === "remaining";
   const fill =
@@ -1309,15 +1367,33 @@ function SankeyNode({
         : payload.kind === "category"
           ? colorFor(payload.name)
           : "var(--accent-foreground)";
+  const opacity = dim ? 0.3 : 1;
   return (
-    <Layer>
-      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} />
+    <Layer style={{ transition: "opacity 150ms" }}>
+      <Rectangle
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        fillOpacity={dim ? 0.4 : 0.9}
+        stroke={active ? fill : "none"}
+        strokeWidth={active ? 2 : 0}
+        style={{ cursor: "pointer" }}
+        onMouseEnter={() => onHover?.(index, true)}
+        onMouseLeave={() => onHover?.(index, false)}
+      />
       <text
         x={isLeft ? x - 8 : isRight ? x + width + 8 : x + width + 8}
         y={y + height / 2}
         textAnchor={isLeft ? "end" : "start"}
         dominantBaseline="middle"
-        style={{ fill: "var(--foreground)", fontSize: 12 }}
+        style={{
+          fill: "var(--foreground)",
+          fontSize: 12,
+          fontWeight: active ? 600 : 400,
+          opacity,
+        }}
       >
         {payload.name}
       </text>
@@ -1326,7 +1402,7 @@ function SankeyNode({
         y={y + height / 2 + 14}
         textAnchor={isLeft ? "end" : "start"}
         dominantBaseline="middle"
-        style={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+        style={{ fill: "var(--muted-foreground)", fontSize: 10, opacity }}
       >
         ${payload.value.toFixed(2)}
       </text>
