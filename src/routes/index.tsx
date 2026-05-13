@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
   ResponsiveContainer,
@@ -77,6 +77,22 @@ function Dashboard() {
   const [ready, setReady] = useState(false);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [open, setOpen] = useState(false);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("theme");
+    const prefers = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    const isDark = stored ? stored === "dark" : !!prefers;
+    setDark(isDark);
+    document.documentElement.classList.toggle("dark", isDark);
+  }, []);
+
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
 
   // form
   const [type, setType] = useState("Food");
@@ -285,6 +301,14 @@ function Dashboard() {
             <span className="text-sm text-muted-foreground hidden sm:block">{session.user.email}</span>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="size-4 mr-1" /> Sign out
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDark}
+              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </Button>
           </div>
         </div>
