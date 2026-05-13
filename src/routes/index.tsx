@@ -536,10 +536,14 @@ function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-3 gap-4">
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">This month</p>
             <p className="text-3xl font-bold mt-1">${monthTotal.toFixed(2)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">This year</p>
+            <p className="text-3xl font-bold mt-1">${yearTotal.toFixed(2)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">All time</p>
