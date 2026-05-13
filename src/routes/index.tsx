@@ -49,18 +49,13 @@ export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-const TYPES = ["Food", "Transport", "Housing", "Entertainment", "Health", "Shopping", "Bills", "Other"];
+const FALLBACK_COLOR = "#64748b";
 
-const PIE_COLORS = [
-  "hsl(160 84% 39%)",
-  "hsl(199 89% 48%)",
-  "hsl(38 92% 50%)",
-  "hsl(271 91% 65%)",
-  "hsl(0 84% 60%)",
-  "hsl(173 58% 39%)",
-  "hsl(280 65% 60%)",
-  "hsl(220 70% 50%)",
-];
+type Category = {
+  id: string;
+  name: string;
+  color: string;
+};
 
 type Expense = {
   id: string;
