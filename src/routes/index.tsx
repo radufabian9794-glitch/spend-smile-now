@@ -127,6 +127,10 @@ function Dashboard() {
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
+  // delete confirmation
+  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   // filters
   const [filterType, setFilterType] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState("");
