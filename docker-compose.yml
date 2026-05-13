@@ -1,0 +1,234 @@
+# Self-hosted stack: TanStack Start app + full Supabase backend.
+# Bring up with:  docker compose --env-file .env.docker up -d
+# Reset data:     docker compose --env-file .env.docker down -v
+# Re-run migrations only:  docker compose --env-file .env.docker run --rm db-migrate
+
+name: lovable-selfhost
+
+networks:
+  supabase:
+    driver: bridge
+
+volumes:
+  db-data:
+  storage-data:
+
+services:
+  # -----------------------------------------------------------------------
+  # Postgres (Supabase image — bundles required extensions)
+  # -----------------------------------------------------------------------
+  db:
+    image: supabase/postgres:15.6.1.139
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: 3600
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./docker/supabase/init-db:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # One-shot: apply supabase/migrations/*.sql on top of the fresh DB.
+  # -----------------------------------------------------------------------
+  db-migrate:
+    image: postgres:15-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+    volumes:
+      - ./supabase/migrations:/migrations:ro
+      - ./docker/supabase/migrate.sh:/migrate.sh:ro
+    entrypoint: ["sh", "/migrate.sh"]
+    restart: "no"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # GoTrue — auth (email/password, OAuth)
+  # -----------------------------------------------------------------------
+  auth:
+    image: supabase/gotrue:v2.158.1
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${SITE_URL}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: "false"
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true" # set to false once SMTP is configured
+      GOTRUE_SMTP_HOST: ${SMTP_HOST}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT}
+      GOTRUE_SMTP_USER: ${SMTP_USER}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS}
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # PostgREST — auto REST API derived from the DB schema
+  # -----------------------------------------------------------------------
+  rest:
+    image: postgrest/postgrest:v12.2.0
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      PGRST_DB_URI: postgres://authenticator:authenticator_pw@db:5432/${POSTGRES_DB:-postgres}
+      PGRST_DB_SCHEMAS: public,storage
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # Realtime — postgres changes over WebSocket
+  # -----------------------------------------------------------------------
+  realtime:
+    image: supabase/realtime:v2.30.34
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      PORT: 4000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB:-postgres}
+      DB_ENC_KEY: supabaserealtime
+      API_JWT_SECRET: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${JWT_SECRET}supabase-realtime-secret-key-base
+      ERL_AFLAGS: -proto_dist inet_tcp
+      ENABLE_TAILSCALE: "false"
+      DNS_NODES: "''"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # Storage — file storage backed by Postgres + local volume
+  # -----------------------------------------------------------------------
+  storage:
+    image: supabase/storage-api:v1.11.13
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      rest:
+        condition: service_started
+    environment:
+      ANON_KEY: ${ANON_KEY}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      PGRST_JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - storage-data:/var/lib/storage
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # postgres-meta — schema introspection (used by Studio)
+  # -----------------------------------------------------------------------
+  meta:
+    image: supabase/postgres-meta:v0.83.2
+    restart: unless-stopped
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    environment:
+      PG_META_PORT: 8080
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-postgres}
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # Kong — single API gateway for all Supabase services
+  # -----------------------------------------------------------------------
+  kong:
+    image: kong:2.8.1
+    restart: unless-stopped
+    depends_on: [auth, rest, realtime, storage, meta]
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+    volumes:
+      - ./docker/supabase/kong.yml:/var/lib/kong/kong.yml:ro
+    ports:
+      - "8000:8000"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # Studio — Supabase web UI (dev profile only)
+  # docker compose --profile dev up -d
+  # -----------------------------------------------------------------------
+  studio:
+    image: supabase/studio:20240729-ce42139
+    restart: unless-stopped
+    profiles: ["dev"]
+    depends_on: [meta, kong]
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DEFAULT_ORGANIZATION_NAME: Self-hosted
+      DEFAULT_PROJECT_NAME: Lovable
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: http://localhost:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+    ports:
+      - "3001:3000"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
+  # The TanStack Start app
+  # -----------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      kong:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      LOVABLE_API_KEY: ${LOVABLE_API_KEY}
+    ports:
+      - "3000:3000"
+    networks: [supabase]
