@@ -782,11 +782,32 @@ function Dashboard() {
         </div>
 
         <Card className="p-5">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="text-sm font-medium">Money flow this month</p>
-            <p className="text-xs text-muted-foreground">
-              {monthIncome > 0 ? "Income" : "Spending"} → categories → merchants
-            </p>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <p className="text-sm font-medium">Money flow</p>
+              <p className="text-xs text-muted-foreground">
+                {flowMonthIncome > 0 ? "Income" : "Spending"} → categories → merchants
+              </p>
+            </div>
+            <Select value={flowMonth} onValueChange={setFlowMonth}>
+              <SelectTrigger className="w-[180px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableFlowMonths.map((ym) => {
+                  const [y, m] = ym.split("-");
+                  const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString(
+                    undefined,
+                    { month: "long", year: "numeric" },
+                  );
+                  return (
+                    <SelectItem key={ym} value={ym}>
+                      {label}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
           {!monthFlow ? (
             <div className="h-[320px] grid place-items-center text-sm text-muted-foreground">
