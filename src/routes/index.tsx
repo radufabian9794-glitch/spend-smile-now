@@ -45,17 +45,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
+  Sankey,
+  Layer,
+  Rectangle,
 } from "recharts";
 
 export const Route = createFileRoute("/")({
