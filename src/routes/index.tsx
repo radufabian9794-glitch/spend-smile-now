@@ -74,6 +74,8 @@ function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [open, setOpen] = useState(false);
   const [dark, setDark] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [manageOpen, setManageOpen] = useState(false);
 
   // Initial theme from localStorage / system preference (pre-login paint)
   useEffect(() => {
