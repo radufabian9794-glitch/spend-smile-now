@@ -778,8 +778,12 @@ function Dashboard() {
                 link={(props: SankeyLinkProps) => {
                   const dim = activeLinkSet !== null && !activeLinkSet.has(props.index);
                   const active = activeLinkSet?.has(props.index) ?? false;
-                  const srcNode = monthFlow.nodes[props.payload.source.index ?? props.payload.source];
-                  const tgtNode = monthFlow.nodes[props.payload.target.index ?? props.payload.target];
+                  const srcRaw = props.payload.source as number | { index: number };
+                  const tgtRaw = props.payload.target as number | { index: number };
+                  const srcIdx = typeof srcRaw === "number" ? srcRaw : srcRaw.index;
+                  const tgtIdx = typeof tgtRaw === "number" ? tgtRaw : tgtRaw.index;
+                  const srcNode = monthFlow.nodes[srcIdx];
+                  const tgtNode = monthFlow.nodes[tgtIdx];
                   let stroke = "var(--muted-foreground)";
                   if (active) {
                     if (tgtNode?.kind === "remaining") stroke = "var(--muted-foreground)";
