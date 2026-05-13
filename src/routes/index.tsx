@@ -138,6 +138,13 @@ function Dashboard() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // income form
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().slice(0, 10));
+  const [incomeDescription, setIncomeDescription] = useState("");
+  const [incomeSaving, setIncomeSaving] = useState(false);
+
   // edit
   const [editing, setEditing] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
