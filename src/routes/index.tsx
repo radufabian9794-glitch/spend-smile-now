@@ -1330,7 +1330,7 @@ function Dashboard() {
               <Button variant="ghost" onClick={() => setAccountOpen(false)} disabled={pwSaving}>
                 Cancel
               </Button>
-              <Button onClick={() => void changePassword()} disabled={pwSaving || !newPassword}>
+              <Button onClick={() => void changePassword()} disabled={pwSaving || !currentPassword || !newPassword}>
                 {pwSaving ? "Saving..." : "Update password"}
               </Button>
             </DialogFooter>
