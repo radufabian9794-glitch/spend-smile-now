@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
-import { Wallet } from "lucide-react";
+import { Wallet, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
