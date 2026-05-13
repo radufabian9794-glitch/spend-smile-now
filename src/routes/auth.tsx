@@ -78,6 +78,7 @@ function AuthPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-accent/30">
+      <Toaster richColors position="top-center" />
       <div className="w-full max-w-md">
         <Link to="/auth" className="flex items-center justify-center gap-2 mb-8">
           <div className="size-10 rounded-xl bg-primary text-primary-foreground grid place-items-center">
