@@ -443,7 +443,32 @@ function Dashboard() {
     toast.success("Payment added");
   };
 
-  const restoreExpense = async (exp: Expense) => {
+  const addIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    const amt = Number(incomeAmount);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    setIncomeSaving(true);
+    const { data, error } = await supabase
+      .from("expenses")
+      .insert({
+        user_id: session.user.id,
+        type: INCOME_TYPE,
+        amount: amt,
+        payment_date: incomeDate,
+        merchant: null,
+        description: incomeDescription.trim() || null,
+      })
+      .select()
+      .single();
+    setIncomeSaving(false);
+    if (error) return toast.error(error.message);
+    setExpenses((prev) => [data as Expense, ...prev]);
+    setIncomeOpen(false);
+    setIncomeAmount("");
+    setIncomeDescription("");
+    toast.success("Income added");
+  };
     const userId = session?.user.id;
     if (!userId) return toast.error("Not signed in");
     setExpenses((cur) =>
