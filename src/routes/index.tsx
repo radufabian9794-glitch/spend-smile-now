@@ -770,9 +770,6 @@ function Dashboard() {
             <Button variant="outline" onClick={() => setManageOpen(true)}>
               <Tags className="size-4 mr-1" /> Categories
             </Button>
-            <Button variant="outline" onClick={() => setIncomeOpen(true)}>
-              <TrendingUp className="size-4 mr-1" /> Income
-            </Button>
             <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
               <DialogContent>
                 <DialogHeader>
@@ -1115,14 +1112,25 @@ function Dashboard() {
         </Dialog>
       </main>
 
-      <Button
-        onClick={() => setOpen(true)}
-        aria-label="Add payment"
-        size="icon"
-        className="fixed bottom-6 right-6 z-50 size-14 rounded-full shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
-      >
-        <Plus className="size-6" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            aria-label="Add entry"
+            size="icon"
+            className="fixed bottom-6 right-6 z-50 size-14 rounded-full shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
+          >
+            <Plus className="size-6" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="top" className="w-44 mb-2">
+          <DropdownMenuItem onSelect={() => setOpen(true)}>
+            <Wallet className="size-4 mr-2" /> Add payment
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setIncomeOpen(true)}>
+            <TrendingUp className="size-4 mr-2" /> Add income
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
