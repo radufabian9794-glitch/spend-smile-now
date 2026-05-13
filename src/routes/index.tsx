@@ -286,6 +286,34 @@ function Dashboard() {
             ))
           )}
         </Card>
+        </Card>
+
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit payment{editing ? ` · ${editing.type}` : ""}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={saveEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-amount">Amount</Label>
+                  <Input id="edit-amount" type="number" step="0.01" min="0" required value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Date</Label>
+                  <Input id="edit-date" type="date" required value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-desc">Description <span className="text-muted-foreground">(optional)</span></Label>
+                <Textarea id="edit-desc" rows={2} maxLength={500} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={editSaving}>{editSaving ? "Saving..." : "Save changes"}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );
