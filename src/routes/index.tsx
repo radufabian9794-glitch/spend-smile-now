@@ -481,7 +481,7 @@ function Dashboard() {
           <div className="relative">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by type or description…"
+              placeholder="Search by type, merchant or description…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
