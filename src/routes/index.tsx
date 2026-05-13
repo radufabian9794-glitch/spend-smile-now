@@ -183,6 +183,20 @@ function Dashboard() {
       });
   }, [session]);
 
+  // Load persisted theme from the user's profile
+  useEffect(() => {
+    if (!session) return;
+    supabase
+      .from("profiles")
+      .select("theme")
+      .eq("user_id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.theme) applyTheme(data.theme === "dark");
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   const total = useMemo(
     () => expenses.reduce((s, e) => s + Number(e.amount), 0),
     [expenses]
