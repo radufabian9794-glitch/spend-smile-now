@@ -25,6 +25,19 @@ import {
 import { toast } from "sonner";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
