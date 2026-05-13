@@ -68,6 +68,12 @@ function Dashboard() {
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
+  // filters
+  const [filterType, setFilterType] = useState<string>("all");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [search, setSearch] = useState("");
+
   const openEdit = (e: Expense) => {
     setEditing(e);
     setEditAmount(String(e.amount));
