@@ -68,6 +68,7 @@ type Expense = {
   amount: number;
   payment_date: string;
   description: string | null;
+  merchant: string | null;
   created_at: string;
 };
 
@@ -109,6 +110,7 @@ function Dashboard() {
   const [type, setType] = useState("Food");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [merchant, setMerchant] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -116,6 +118,7 @@ function Dashboard() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editDate, setEditDate] = useState("");
+  const [editMerchant, setEditMerchant] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
 
@@ -131,6 +134,7 @@ function Dashboard() {
     setEditing(e);
     setEditAmount(String(e.amount));
     setEditDate(e.payment_date);
+    setEditMerchant(e.merchant ?? "");
     setEditDescription(e.description ?? "");
   };
 
@@ -145,6 +149,7 @@ function Dashboard() {
       .update({
         amount: amt,
         payment_date: editDate,
+        merchant: editMerchant.trim() || null,
         description: editDescription.trim() || null,
       })
       .eq("id", editing.id)
@@ -221,7 +226,7 @@ function Dashboard() {
       if (min !== null && !Number.isNaN(min) && amt < min) return false;
       if (max !== null && !Number.isNaN(max) && amt > max) return false;
       if (q) {
-        const hay = `${e.type} ${e.description ?? ""}`.toLowerCase();
+        const hay = `${e.type} ${e.merchant ?? ""} ${e.description ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -279,6 +284,7 @@ function Dashboard() {
         type,
         amount: amt,
         payment_date: date,
+        merchant: merchant.trim() || null,
         description: description.trim() || null,
       })
       .select()
@@ -288,6 +294,7 @@ function Dashboard() {
     setExpenses((prev) => [data as Expense, ...prev]);
     setOpen(false);
     setAmount("");
+    setMerchant("");
     setDescription("");
     toast.success("Payment added");
   };
@@ -459,6 +466,10 @@ function Dashboard() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input id="merchant" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="desc">Description <span className="text-muted-foreground">(optional)</span></Label>
                   <Textarea id="desc" rows={2} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
                 </div>
@@ -474,7 +485,7 @@ function Dashboard() {
           <div className="relative">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by type or description…"
+              placeholder="Search by type, merchant or description…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -553,7 +564,10 @@ function Dashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <p className="font-medium truncate">{e.type}</p>
+                    <p className="font-medium truncate">
+                      {e.type}
+                      {e.merchant && <span className="text-muted-foreground font-normal"> · {e.merchant}</span>}
+                    </p>
                     <p className="text-xs text-muted-foreground">{e.payment_date}</p>
                   </div>
                   {e.description && <p className="text-sm text-muted-foreground truncate">{e.description}</p>}
@@ -585,6 +599,10 @@ function Dashboard() {
                   <Label htmlFor="edit-date">Date</Label>
                   <Input id="edit-date" type="date" required value={editDate} onChange={(e) => setEditDate(e.target.value)} />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
+                <Input id="edit-merchant" maxLength={120} value={editMerchant} onChange={(e) => setEditMerchant(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-desc">Description <span className="text-muted-foreground">(optional)</span></Label>
