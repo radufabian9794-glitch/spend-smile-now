@@ -454,6 +454,80 @@ function Dashboard() {
     return { nodes, links };
   }, [spendExpenses, monthIncome, monthTotal]);
 
+  const [sankeyHover, setSankeyHover] = useState<
+    | { kind: "node"; index: number }
+    | { kind: "link"; index: number }
+    | null
+  >(null);
+
+  const activeLinkSet = useMemo(() => {
+    if (!monthFlow || !sankeyHover) return null;
+    const set = new Set<number>();
+    const { nodes, links } = monthFlow;
+    const incomeIdx = nodes.findIndex((n) => n.kind === "income");
+
+    const addPathThroughCategory = (catIdx: number) => {
+      links.forEach((l, i) => {
+        if (l.source === incomeIdx && l.target === catIdx) set.add(i);
+        if (l.source === catIdx) set.add(i);
+      });
+    };
+    const addPathThroughMerchant = (merIdx: number) => {
+      links.forEach((l, i) => {
+        if (l.target === merIdx) {
+          set.add(i);
+          const catIdx = l.source;
+          links.forEach((l2, j) => {
+            if (l2.source === incomeIdx && l2.target === catIdx) set.add(j);
+          });
+        }
+      });
+    };
+
+    if (sankeyHover.kind === "node") {
+      const node = nodes[sankeyHover.index];
+      if (!node) return set;
+      if (node.kind === "income") links.forEach((_, i) => set.add(i));
+      else if (node.kind === "remaining") {
+        links.forEach((l, i) => {
+          if (l.target === sankeyHover.index) set.add(i);
+        });
+      } else if (node.kind === "category") addPathThroughCategory(sankeyHover.index);
+      else if (node.kind === "merchant") addPathThroughMerchant(sankeyHover.index);
+    } else {
+      const link = links[sankeyHover.index];
+      if (!link) return set;
+      set.add(sankeyHover.index);
+      const srcNode = nodes[link.source];
+      const tgtNode = nodes[link.target];
+      if (srcNode?.kind === "category") {
+        links.forEach((l, i) => {
+          if (l.source === incomeIdx && l.target === link.source) set.add(i);
+        });
+      }
+      if (tgtNode?.kind === "category") {
+        links.forEach((l, i) => {
+          if (l.source === link.target) set.add(i);
+        });
+      }
+    }
+    return set;
+  }, [monthFlow, sankeyHover]);
+
+  const activeNodeSet = useMemo(() => {
+    if (!monthFlow || !activeLinkSet) return null;
+    const set = new Set<number>();
+    activeLinkSet.forEach((i) => {
+      const l = monthFlow.links[i];
+      if (l) {
+        set.add(l.source);
+        set.add(l.target);
+      }
+    });
+    return set;
+  }, [monthFlow, activeLinkSet]);
+
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
@@ -701,9 +775,42 @@ function Dashboard() {
                 nodePadding={24}
                 nodeWidth={12}
                 margin={{ top: 10, right: 140, bottom: 10, left: 80 }}
-                link={{ stroke: "var(--muted-foreground)", strokeOpacity: 0.25 }}
+                link={(props: SankeyLinkProps) => {
+                  const dim = activeLinkSet !== null && !activeLinkSet.has(props.index);
+                  const active = activeLinkSet?.has(props.index) ?? false;
+                  const srcRaw = props.payload.source as number | { index: number };
+                  const tgtRaw = props.payload.target as number | { index: number };
+                  const srcIdx = typeof srcRaw === "number" ? srcRaw : srcRaw.index;
+                  const tgtIdx = typeof tgtRaw === "number" ? tgtRaw : tgtRaw.index;
+                  const srcNode = monthFlow.nodes[srcIdx];
+                  const tgtNode = monthFlow.nodes[tgtIdx];
+                  let stroke = "var(--muted-foreground)";
+                  if (active) {
+                    if (tgtNode?.kind === "remaining") stroke = "var(--muted-foreground)";
+                    else if (srcNode?.kind === "category") stroke = colorFor(srcNode.name);
+                    else if (tgtNode?.kind === "category") stroke = colorFor(tgtNode.name);
+                    else stroke = "var(--primary)";
+                  }
+                  return (
+                    <SankeyLink
+                      {...props}
+                      stroke={stroke}
+                      strokeOpacity={active ? 0.7 : dim ? 0.08 : 0.25}
+                      onMouseEnter={() => setSankeyHover({ kind: "link", index: props.index })}
+                      onMouseLeave={() => setSankeyHover(null)}
+                    />
+                  );
+                }}
                 node={(props: SankeyNodeProps) => (
-                  <SankeyNode {...props} colorFor={colorFor} />
+                  <SankeyNode
+                    {...props}
+                    colorFor={colorFor}
+                    dim={activeNodeSet !== null && !activeNodeSet.has(props.index)}
+                    active={activeNodeSet?.has(props.index) ?? false}
+                    onHover={(i, hovering) =>
+                      setSankeyHover(hovering ? { kind: "node", index: i } : null)
+                    }
+                  />
                 )}
               >
                 <Tooltip
@@ -1188,14 +1295,72 @@ type SankeyNodeProps = {
   payload: { name: string; kind: SankeyNodeKind; value: number };
 };
 
+type SankeyLinkProps = {
+  sourceX: number;
+  targetX: number;
+  sourceY: number;
+  targetY: number;
+  sourceControlX: number;
+  targetControlX: number;
+  linkWidth: number;
+  index: number;
+  payload: {
+    source: number | { index: number };
+    target: number | { index: number };
+    value: number;
+  };
+  stroke?: string;
+  strokeOpacity?: number;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+};
+
+function SankeyLink({
+  sourceX,
+  targetX,
+  sourceY,
+  targetY,
+  sourceControlX,
+  targetControlX,
+  linkWidth,
+  stroke,
+  strokeOpacity,
+  onMouseEnter,
+  onMouseLeave,
+}: SankeyLinkProps) {
+  return (
+    <Layer>
+      <path
+        d={`M${sourceX},${sourceY}C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+        fill="none"
+        stroke={stroke}
+        strokeOpacity={strokeOpacity}
+        strokeWidth={linkWidth}
+        style={{ transition: "stroke-opacity 150ms, stroke 150ms", cursor: "pointer" }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      />
+    </Layer>
+  );
+}
+
 function SankeyNode({
   x,
   y,
   width,
   height,
+  index,
   payload,
   colorFor,
-}: SankeyNodeProps & { colorFor: (name: string) => string }) {
+  dim = false,
+  active = false,
+  onHover,
+}: SankeyNodeProps & {
+  colorFor: (name: string) => string;
+  dim?: boolean;
+  active?: boolean;
+  onHover?: (index: number, hovering: boolean) => void;
+}) {
   const isLeft = payload.kind === "income";
   const isRight = payload.kind === "merchant" || payload.kind === "remaining";
   const fill =
@@ -1206,15 +1371,33 @@ function SankeyNode({
         : payload.kind === "category"
           ? colorFor(payload.name)
           : "var(--accent-foreground)";
+  const opacity = dim ? 0.3 : 1;
   return (
-    <Layer>
-      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} />
+    <Layer style={{ transition: "opacity 150ms" }}>
+      <Rectangle
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        fillOpacity={dim ? 0.4 : 0.9}
+        stroke={active ? fill : "none"}
+        strokeWidth={active ? 2 : 0}
+        style={{ cursor: "pointer" }}
+        onMouseEnter={() => onHover?.(index, true)}
+        onMouseLeave={() => onHover?.(index, false)}
+      />
       <text
         x={isLeft ? x - 8 : isRight ? x + width + 8 : x + width + 8}
         y={y + height / 2}
         textAnchor={isLeft ? "end" : "start"}
         dominantBaseline="middle"
-        style={{ fill: "var(--foreground)", fontSize: 12 }}
+        style={{
+          fill: "var(--foreground)",
+          fontSize: 12,
+          fontWeight: active ? 600 : 400,
+          opacity,
+        }}
       >
         {payload.name}
       </text>
@@ -1223,7 +1406,7 @@ function SankeyNode({
         y={y + height / 2 + 14}
         textAnchor={isLeft ? "end" : "start"}
         dominantBaseline="middle"
-        style={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+        style={{ fill: "var(--muted-foreground)", fontSize: 10, opacity }}
       >
         ${payload.value.toFixed(2)}
       </text>
