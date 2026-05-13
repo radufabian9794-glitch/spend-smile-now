@@ -201,6 +201,8 @@ function Dashboard() {
       a.month.localeCompare(b.month)
     );
   }, [filtered]);
+
+  const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
