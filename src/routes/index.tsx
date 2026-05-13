@@ -782,6 +782,15 @@ function Dashboard() {
           ))}
         </datalist>
       </main>
+
+      <Button
+        onClick={() => setOpen(true)}
+        aria-label="Add payment"
+        size="icon"
+        className="fixed bottom-6 right-6 z-50 size-14 rounded-full shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
+      >
+        <Plus className="size-6" />
+      </Button>
     </div>
   );
 }
