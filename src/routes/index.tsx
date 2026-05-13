@@ -268,25 +268,48 @@ function Dashboard() {
     [expenses]
   );
 
+  const spendExpenses = useMemo(
+    () => expenses.filter((e) => e.type !== INCOME_TYPE),
+    [expenses],
+  );
+  const incomeExpenses = useMemo(
+    () => expenses.filter((e) => e.type === INCOME_TYPE),
+    [expenses],
+  );
+
+  const total = useMemo(
+    () => spendExpenses.reduce((s, e) => s + Number(e.amount), 0),
+    [spendExpenses],
+  );
+
   const monthTotal = useMemo(() => {
     const ym = new Date().toISOString().slice(0, 7);
-    return expenses
+    return spendExpenses
       .filter((e) => e.payment_date.startsWith(ym))
       .reduce((s, e) => s + Number(e.amount), 0);
-  }, [expenses]);
+  }, [spendExpenses]);
 
   const yearTotal = useMemo(() => {
     const y = new Date().getFullYear().toString();
-    return expenses
+    return spendExpenses
       .filter((e) => e.payment_date.startsWith(y))
       .reduce((s, e) => s + Number(e.amount), 0);
-  }, [expenses]);
+  }, [spendExpenses]);
+
+  const monthIncome = useMemo(() => {
+    const ym = new Date().toISOString().slice(0, 7);
+    return incomeExpenses
+      .filter((e) => e.payment_date.startsWith(ym))
+      .reduce((s, e) => s + Number(e.amount), 0);
+  }, [incomeExpenses]);
+
+  const leftThisMonth = monthIncome - monthTotal;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = filterMin === "" ? null : Number(filterMin);
     const max = filterMax === "" ? null : Number(filterMax);
-    return expenses.filter((e) => {
+    return spendExpenses.filter((e) => {
       if (filterType !== "all" && e.type !== filterType) return false;
       if (filterFrom && e.payment_date < filterFrom) return false;
       if (filterTo && e.payment_date > filterTo) return false;
@@ -299,7 +322,7 @@ function Dashboard() {
       }
       return true;
     });
-  }, [expenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
+  }, [spendExpenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
 
   const filteredTotal = useMemo(
     () => filtered.reduce((s, e) => s + Number(e.amount), 0),
