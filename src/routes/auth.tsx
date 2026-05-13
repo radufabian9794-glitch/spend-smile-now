@@ -87,11 +87,17 @@ function AuthPage() {
           <span className="text-2xl font-bold tracking-tight">Spendly</span>
         </Link>
         <Card className="p-6">
-          <Tabs defaultValue="login">
+          <Tabs defaultValue="login" onValueChange={() => setErrorMsg(null)}>
             <TabsList className="grid grid-cols-2 w-full mb-6">
               <TabsTrigger value="login">Sign in</TabsTrigger>
               <TabsTrigger value="signup">Create account</TabsTrigger>
             </TabsList>
+            {errorMsg && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="size-4 mt-0.5 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
