@@ -917,6 +917,59 @@ function Dashboard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog
+          open={accountOpen}
+          onOpenChange={(o) => {
+            setAccountOpen(o);
+            if (!o) {
+              setNewPassword("");
+              setConfirmPassword("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Account settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <div className="text-sm font-medium">{session.user.email}</div>
+              </div>
+              <div className="space-y-3 border-t pt-4">
+                <div className="text-sm font-medium">Change password</div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-pw">New password</Label>
+                  <Input
+                    id="new-pw"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-pw">Confirm password</Label>
+                  <Input
+                    id="confirm-pw"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setAccountOpen(false)} disabled={pwSaving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void changePassword()} disabled={pwSaving || !newPassword}>
+                {pwSaving ? "Saving..." : "Update password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
 
       <Button
