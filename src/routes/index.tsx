@@ -583,11 +583,6 @@ function Dashboard() {
               <Tags className="size-4 mr-1" /> Categories
             </Button>
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="size-4 mr-1" /> Add payment
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>New payment</DialogTitle>
@@ -787,6 +782,15 @@ function Dashboard() {
           ))}
         </datalist>
       </main>
+
+      <Button
+        onClick={() => setOpen(true)}
+        aria-label="Add payment"
+        size="icon"
+        className="fixed bottom-6 right-6 z-50 size-14 rounded-full shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
+      >
+        <Plus className="size-6" />
+      </Button>
     </div>
   );
 }
