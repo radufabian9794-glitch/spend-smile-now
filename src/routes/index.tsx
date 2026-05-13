@@ -37,6 +37,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  LabelList,
 } from "recharts";
 
 export const Route = createFileRoute("/")({
@@ -301,7 +302,12 @@ function Dashboard() {
     return Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, TOP_MERCHANTS)
-      .map((g) => ({ name: g.display, total: g.total, count: g.count }));
+      .map((g) => ({
+        name: g.display,
+        total: g.total,
+        count: g.count,
+        avg: g.count > 0 ? g.total / g.count : 0,
+      }));
   }, [filtered]);
 
   const merchantSuggestions = useMemo(() => {
@@ -538,10 +544,14 @@ function Dashboard() {
                   />
                   <Tooltip
                     cursor={{ fill: "var(--accent)", opacity: 0.3 }}
-                    formatter={(v: number, _n, item) => [
-                      `$${Number(v).toFixed(2)}`,
-                      `${item?.payload?.count ?? 0} payment${item?.payload?.count === 1 ? "" : "s"}`,
-                    ]}
+                    formatter={(v: number, _n, item) => {
+                      const count = Number(item?.payload?.count ?? 0);
+                      const avg = Number(item?.payload?.avg ?? 0);
+                      return [
+                        `$${Number(v).toFixed(2)} total · avg $${avg.toFixed(2)}`,
+                        `${count} payment${count === 1 ? "" : "s"}`,
+                      ];
+                    }}
                     contentStyle={{
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
@@ -549,7 +559,14 @@ function Dashboard() {
                       color: "var(--popover-foreground)",
                     }}
                   />
-                  <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]} />
+                  <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]}>
+                    <LabelList
+                      dataKey="avg"
+                      position="right"
+                      formatter={(v: number) => `avg $${Number(v).toFixed(2)}`}
+                      style={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                    />
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
