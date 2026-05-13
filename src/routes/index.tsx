@@ -468,7 +468,14 @@ function Dashboard() {
                   <Select value={type} onValueChange={setType}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>
+                          <span className="inline-flex items-center gap-2">
+                            <span className="size-3 rounded-full" style={{ background: c.color }} />
+                            {c.name}
+                          </span>
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
