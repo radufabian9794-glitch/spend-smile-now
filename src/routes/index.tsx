@@ -707,12 +707,67 @@ function Dashboard() {
                 )}
               >
                 <Tooltip
-                  formatter={(v: number) => `$${Number(v).toFixed(2)}`}
-                  contentStyle={{
-                    background: "var(--popover)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 8,
-                    color: "var(--popover-foreground)",
+                  content={({ active, payload }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const p: any = payload[0]?.payload?.payload ?? payload[0]?.payload ?? {};
+                    const fmt = (v: number) => `$${Number(v ?? 0).toFixed(2)}`;
+                    const rootLabel = monthIncome > 0 ? "Income" : "Spending";
+                    let title = "";
+                    let path: string[] = [];
+                    let amount = 0;
+                    if (p.source !== undefined && p.target !== undefined) {
+                      const srcNode = monthFlow?.nodes[p.source as number];
+                      const tgtNode = monthFlow?.nodes[p.target as number];
+                      const src = srcNode?.name ?? "";
+                      const tgt = tgtNode?.name ?? "";
+                      amount = Number(p.value ?? 0);
+                      path = src === rootLabel ? [src, tgt] : [rootLabel, src, tgt];
+                      title = "Flow";
+                    } else if (p.name) {
+                      amount = Number(p.value ?? 0);
+                      const kind: SankeyNodeKind = p.kind ?? "category";
+                      if (kind === "income") path = [p.name];
+                      else if (kind === "remaining") path = [rootLabel, "Remaining"];
+                      else if (kind === "category") path = [rootLabel, p.name];
+                      else {
+                        const parentLink = monthFlow?.links.find(
+                          (l) => monthFlow.nodes[l.target].name === p.name,
+                        );
+                        const parentCat = parentLink
+                          ? monthFlow?.nodes[parentLink.source].name
+                          : undefined;
+                        path = parentCat
+                          ? [rootLabel, parentCat, p.name]
+                          : [rootLabel, p.name];
+                      }
+                      title =
+                        kind === "income"
+                          ? "Total"
+                          : kind === "merchant"
+                            ? "Merchant total"
+                            : kind === "remaining"
+                              ? "Unspent"
+                              : "Category total";
+                    }
+                    return (
+                      <div
+                        style={{
+                          background: "var(--popover)",
+                          border: "1px solid var(--border)",
+                          borderRadius: 8,
+                          color: "var(--popover-foreground)",
+                          padding: "8px 10px",
+                          fontSize: 12,
+                          maxWidth: 280,
+                        }}
+                      >
+                        <div className="text-muted-foreground mb-1">{title}</div>
+                        <div className="font-medium leading-snug break-words">
+                          {path.join(" → ")}
+                        </div>
+                        <div className="mt-1 font-semibold">{fmt(amount)}</div>
+                      </div>
+                    );
                   }}
                 />
               </Sankey>
