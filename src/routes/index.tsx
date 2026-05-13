@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { friendlyDbError } from "@/lib/db-errors";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings, TrendingUp } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -152,6 +153,7 @@ function Dashboard() {
 
   // account settings
   const [accountOpen, setAccountOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
@@ -190,7 +192,7 @@ function Dashboard() {
       .select()
       .single();
     setEditSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => prev.map((x) => (x.id === editing.id ? (data as Expense) : x)));
     setEditing(null);
     toast.success("Payment updated");
@@ -217,7 +219,7 @@ function Dashboard() {
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
-        if (error) return toast.error(error.message);
+        if (error) return toast.error(friendlyDbError(error));
         setExpenses((data ?? []) as Expense[]);
       });
   }, [session]);
@@ -227,7 +229,7 @@ function Dashboard() {
       .from("categories")
       .select("id, name, color")
       .order("name", { ascending: true });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     const cats = (data ?? []) as Category[];
     setCategories(cats);
     setType((prev) => (cats.some((c) => c.name === prev) ? prev : cats[0]?.name ?? ""));
@@ -586,7 +588,7 @@ function Dashboard() {
       .select()
       .single();
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => [data as Expense, ...prev]);
     setOpen(false);
     setAmount("");
@@ -614,7 +616,7 @@ function Dashboard() {
       .select()
       .single();
     setIncomeSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => [data as Expense, ...prev]);
     setIncomeOpen(false);
     setIncomeAmount("");
@@ -653,7 +655,7 @@ function Dashboard() {
     const { error } = await supabase.from("expenses").delete().eq("id", exp.id);
     if (error) {
       setExpenses(prev);
-      toast.error(error.message);
+      toast.error(friendlyDbError(error));
     } else {
       toast.success("Payment deleted", {
         action: {
@@ -680,12 +682,26 @@ function Dashboard() {
   };
 
   const changePassword = async () => {
+    if (!currentPassword) return toast.error("Enter your current password");
     if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
     if (newPassword !== confirmPassword) return toast.error("Passwords don't match");
+    if (newPassword === currentPassword)
+      return toast.error("New password must be different from the current one");
+    if (!session?.user.email) return toast.error("Missing account email");
     setPwSaving(true);
+    // Re-authenticate to confirm the requester actually knows the current password.
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: session.user.email,
+      password: currentPassword,
+    });
+    if (reauthError) {
+      setPwSaving(false);
+      return toast.error("Current password is incorrect");
+    }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setPwSaving(false);
     if (error) return toast.error(error.message);
+    setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
     setAccountOpen(false);
@@ -1262,6 +1278,7 @@ function Dashboard() {
           onOpenChange={(o) => {
             setAccountOpen(o);
             if (!o) {
+              setCurrentPassword("");
               setNewPassword("");
               setConfirmPassword("");
             }
@@ -1278,6 +1295,16 @@ function Dashboard() {
               </div>
               <div className="space-y-3 border-t pt-4">
                 <div className="text-sm font-medium">Change password</div>
+                <div className="space-y-2">
+                  <Label htmlFor="current-pw">Current password</Label>
+                  <Input
+                    id="current-pw"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="new-pw">New password</Label>
                   <Input
@@ -1303,7 +1330,7 @@ function Dashboard() {
               <Button variant="ghost" onClick={() => setAccountOpen(false)} disabled={pwSaving}>
                 Cancel
               </Button>
-              <Button onClick={() => void changePassword()} disabled={pwSaving || !newPassword}>
+              <Button onClick={() => void changePassword()} disabled={pwSaving || !currentPassword || !newPassword}>
                 {pwSaving ? "Saving..." : "Update password"}
               </Button>
             </DialogFooter>
@@ -1525,7 +1552,7 @@ function ManageCategoriesDialog({
       .from("categories")
       .insert({ user_id: userId, name, color: newColor });
     setAdding(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setNewName("");
     setNewColor(PRESET_COLORS[0]);
     await onChanged();
@@ -1534,14 +1561,14 @@ function ManageCategoriesDialog({
 
   const updateCategory = async (id: string, patch: { name?: string; color?: string }) => {
     const { error } = await supabase.from("categories").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     await onChanged();
   };
 
   const removeCategory = async (id: string, name: string) => {
     if (!confirm(`Delete category "${name}"? Existing payments keep this label.`)) return;
     const { error } = await supabase.from("categories").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     await onChanged();
     toast.success("Category deleted");
   };
