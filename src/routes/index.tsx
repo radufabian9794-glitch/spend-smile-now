@@ -506,6 +506,54 @@ function Dashboard() {
               </ResponsiveContainer>
             )}
           </Card>
+
+          <Card className="p-5 lg:col-span-2">
+            <p className="text-sm font-medium mb-3">Top merchants by spend</p>
+            {byMerchant.length === 0 ? (
+              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
+                No merchant data to display
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={Math.max(180, byMerchant.length * 38)}>
+                <BarChart
+                  data={byMerchant}
+                  layout="vertical"
+                  margin={{ top: 5, right: 16, left: 8, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                    tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={120}
+                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                    stroke="var(--border)"
+                    tickLine={{ stroke: "var(--border)" }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "var(--accent)", opacity: 0.3 }}
+                    formatter={(v: number, _n, item) => [
+                      `$${Number(v).toFixed(2)}`,
+                      `${item?.payload?.count ?? 0} payment${item?.payload?.count === 1 ? "" : "s"}`,
+                    ]}
+                    contentStyle={{
+                      background: "var(--popover)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      color: "var(--popover-foreground)",
+                    }}
+                  />
+                  <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
         </div>
 
         <div className="flex items-center justify-between gap-2">
