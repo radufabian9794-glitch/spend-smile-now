@@ -1131,8 +1131,6 @@ function Dashboard() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-        <Plus className="size-6" />
-      </Button>
     </div>
   );
 }
