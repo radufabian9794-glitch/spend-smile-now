@@ -276,6 +276,18 @@ function Dashboard() {
     );
   }, [filtered]);
 
+  const merchantSuggestions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of expenses) {
+      const m = e.merchant?.trim();
+      if (!m) continue;
+      counts.set(m, (counts.get(m) ?? 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name]) => name);
+  }, [expenses]);
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
