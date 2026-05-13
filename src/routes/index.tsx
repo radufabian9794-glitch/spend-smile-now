@@ -22,6 +22,16 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
@@ -126,6 +136,10 @@ function Dashboard() {
   const [editMerchant, setEditMerchant] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+
+  // delete confirmation
+  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // filters
   const [filterType, setFilterType] = useState<string>("all");
@@ -389,7 +403,17 @@ function Dashboard() {
     if (error) {
       setExpenses(prev);
       toast.error(error.message);
+    } else {
+      toast.success("Payment deleted");
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await removeExpense(pendingDelete.id);
+    setDeleting(false);
+    setPendingDelete(null);
   };
 
   const signOut = async () => {
@@ -729,7 +753,7 @@ function Dashboard() {
                 <Button variant="ghost" size="icon" onClick={() => openEdit(e)} aria-label="Edit">
                   <Pencil className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => removeExpense(e.id)} aria-label="Delete">
+                <Button variant="ghost" size="icon" onClick={() => setPendingDelete(e)} aria-label="Delete">
                   <Trash2 className="size-4" />
                 </Button>
               </div>
@@ -781,6 +805,43 @@ function Dashboard() {
             <option key={m} value={m} />
           ))}
         </datalist>
+
+        <AlertDialog
+          open={!!pendingDelete}
+          onOpenChange={(o) => !o && !deleting && setPendingDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingDelete && (
+                  <>
+                    This will permanently remove{" "}
+                    <span className="font-medium text-foreground">
+                      {pendingDelete.type}
+                      {pendingDelete.merchant ? ` · ${pendingDelete.merchant}` : ""} · $
+                      {Number(pendingDelete.amount).toFixed(2)}
+                    </span>{" "}
+                    on {pendingDelete.payment_date}. This action can't be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmDelete();
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       <Button
