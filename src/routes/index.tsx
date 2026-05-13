@@ -51,6 +51,13 @@ export const Route = createFileRoute("/")({
 
 const FALLBACK_COLOR = "#64748b";
 
+/** Trim and collapse internal whitespace; returns null when empty. */
+function cleanMerchant(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  return cleaned || null;
+}
+
 type Category = {
   id: string;
   name: string;
@@ -146,7 +153,7 @@ function Dashboard() {
       .update({
         amount: amt,
         payment_date: editDate,
-        merchant: editMerchant.trim() || null,
+        merchant: cleanMerchant(editMerchant),
         description: editDescription.trim() || null,
       })
       .eq("id", editing.id)
@@ -277,15 +284,33 @@ function Dashboard() {
   }, [filtered]);
 
   const merchantSuggestions = useMemo(() => {
-    const counts = new Map<string, number>();
+    // Group by normalized key (case-insensitive, whitespace-collapsed),
+    // and surface the most common original spelling as the display value.
+    const groups = new Map<string, Map<string, number>>();
     for (const e of expenses) {
-      const m = e.merchant?.trim();
-      if (!m) continue;
-      counts.set(m, (counts.get(m) ?? 0) + 1);
+      const cleaned = cleanMerchant(e.merchant);
+      if (!cleaned) continue;
+      const key = cleaned.toLowerCase();
+      const variants = groups.get(key) ?? new Map<string, number>();
+      variants.set(cleaned, (variants.get(cleaned) ?? 0) + 1);
+      groups.set(key, variants);
     }
-    return Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([name]) => name);
+    return Array.from(groups.values())
+      .map((variants) => {
+        let total = 0;
+        let best = "";
+        let bestCount = -1;
+        for (const [name, count] of variants) {
+          total += count;
+          if (count > bestCount) {
+            best = name;
+            bestCount = count;
+          }
+        }
+        return { name: best, total };
+      })
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+      .map((g) => g.name);
   }, [expenses]);
 
   const filtersActive =
@@ -313,7 +338,7 @@ function Dashboard() {
         type,
         amount: amt,
         payment_date: date,
-        merchant: merchant.trim() || null,
+        merchant: cleanMerchant(merchant),
         description: description.trim() || null,
       })
       .select()
