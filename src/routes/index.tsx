@@ -61,6 +61,43 @@ function Dashboard() {
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // edit
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (e: Expense) => {
+    setEditing(e);
+    setEditAmount(String(e.amount));
+    setEditDate(e.payment_date);
+    setEditDescription(e.description ?? "");
+  };
+
+  const saveEdit = async (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (!editing) return;
+    const amt = Number(editAmount);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    setEditSaving(true);
+    const { data, error } = await supabase
+      .from("expenses")
+      .update({
+        amount: amt,
+        payment_date: editDate,
+        description: editDescription.trim() || null,
+      })
+      .eq("id", editing.id)
+      .select()
+      .single();
+    setEditSaving(false);
+    if (error) return toast.error(error.message);
+    setExpenses((prev) => prev.map((x) => (x.id === editing.id ? (data as Expense) : x)));
+    setEditing(null);
+    toast.success("Payment updated");
+  };
+
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
