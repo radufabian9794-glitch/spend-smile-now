@@ -507,7 +507,7 @@ function Dashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
-                  <Input id="merchant" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
+                  <Input id="merchant" list="merchant-suggestions" autoComplete="off" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="desc">Description <span className="text-muted-foreground">(optional)</span></Label>
