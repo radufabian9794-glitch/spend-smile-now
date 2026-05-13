@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings, TrendingUp } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
@@ -69,6 +69,7 @@ export const Route = createFileRoute("/")({
 });
 
 const FALLBACK_COLOR = "#64748b";
+const INCOME_TYPE = "__income";
 
 /** Trim and collapse internal whitespace; returns null when empty. */
 function cleanMerchant(raw: string | null | undefined): string | null {
@@ -136,6 +137,13 @@ function Dashboard() {
   const [merchant, setMerchant] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // income form
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().slice(0, 10));
+  const [incomeDescription, setIncomeDescription] = useState("");
+  const [incomeSaving, setIncomeSaving] = useState(false);
 
   // edit
   const [editing, setEditing] = useState<Expense | null>(null);
@@ -255,30 +263,48 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
+  const spendExpenses = useMemo(
+    () => expenses.filter((e) => e.type !== INCOME_TYPE),
+    [expenses],
+  );
+  const incomeExpenses = useMemo(
+    () => expenses.filter((e) => e.type === INCOME_TYPE),
+    [expenses],
+  );
+
   const total = useMemo(
-    () => expenses.reduce((s, e) => s + Number(e.amount), 0),
-    [expenses]
+    () => spendExpenses.reduce((s, e) => s + Number(e.amount), 0),
+    [spendExpenses],
   );
 
   const monthTotal = useMemo(() => {
     const ym = new Date().toISOString().slice(0, 7);
-    return expenses
+    return spendExpenses
       .filter((e) => e.payment_date.startsWith(ym))
       .reduce((s, e) => s + Number(e.amount), 0);
-  }, [expenses]);
+  }, [spendExpenses]);
 
   const yearTotal = useMemo(() => {
     const y = new Date().getFullYear().toString();
-    return expenses
+    return spendExpenses
       .filter((e) => e.payment_date.startsWith(y))
       .reduce((s, e) => s + Number(e.amount), 0);
-  }, [expenses]);
+  }, [spendExpenses]);
+
+  const monthIncome = useMemo(() => {
+    const ym = new Date().toISOString().slice(0, 7);
+    return incomeExpenses
+      .filter((e) => e.payment_date.startsWith(ym))
+      .reduce((s, e) => s + Number(e.amount), 0);
+  }, [incomeExpenses]);
+
+  const leftThisMonth = monthIncome - monthTotal;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = filterMin === "" ? null : Number(filterMin);
     const max = filterMax === "" ? null : Number(filterMax);
-    return expenses.filter((e) => {
+    return spendExpenses.filter((e) => {
       if (filterType !== "all" && e.type !== filterType) return false;
       if (filterFrom && e.payment_date < filterFrom) return false;
       if (filterTo && e.payment_date > filterTo) return false;
@@ -291,7 +317,7 @@ function Dashboard() {
       }
       return true;
     });
-  }, [expenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
+  }, [spendExpenses, filterType, filterFrom, filterTo, filterMin, filterMax, search]);
 
   const filteredTotal = useMemo(
     () => filtered.reduce((s, e) => s + Number(e.amount), 0),
@@ -417,6 +443,33 @@ function Dashboard() {
     toast.success("Payment added");
   };
 
+  const addIncome = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session) return;
+    const amt = Number(incomeAmount);
+    if (!amt || amt <= 0) return toast.error("Enter a valid amount");
+    setIncomeSaving(true);
+    const { data, error } = await supabase
+      .from("expenses")
+      .insert({
+        user_id: session.user.id,
+        type: INCOME_TYPE,
+        amount: amt,
+        payment_date: incomeDate,
+        merchant: null,
+        description: incomeDescription.trim() || null,
+      })
+      .select()
+      .single();
+    setIncomeSaving(false);
+    if (error) return toast.error(error.message);
+    setExpenses((prev) => [data as Expense, ...prev]);
+    setIncomeOpen(false);
+    setIncomeAmount("");
+    setIncomeDescription("");
+    toast.success("Income added");
+  };
+
   const restoreExpense = async (exp: Expense) => {
     const userId = session?.user.id;
     if (!userId) return toast.error("Not signed in");
@@ -536,10 +589,35 @@ function Dashboard() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">This month</p>
             <p className="text-3xl font-bold mt-1">${monthTotal.toFixed(2)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">Income this month</p>
+            <p className="text-3xl font-bold mt-1 text-emerald-600 dark:text-emerald-400">
+              ${monthIncome.toFixed(2)}
+            </p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">Left this month</p>
+            <p
+              className={`text-3xl font-bold mt-1 ${
+                monthIncome === 0
+                  ? ""
+                  : leftThisMonth >= 0
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-destructive"
+              }`}
+            >
+              {monthIncome === 0 ? "—" : `$${leftThisMonth.toFixed(2)}`}
+            </p>
+            {monthIncome > 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {Math.min(100, Math.round((monthTotal / monthIncome) * 100))}% of income spent
+              </p>
+            )}
           </Card>
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">This year</p>
@@ -692,6 +770,60 @@ function Dashboard() {
             <Button variant="outline" onClick={() => setManageOpen(true)}>
               <Tags className="size-4 mr-1" /> Categories
             </Button>
+            <Button variant="outline" onClick={() => setIncomeOpen(true)}>
+              <TrendingUp className="size-4 mr-1" /> Income
+            </Button>
+            <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add income</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={addIncome} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="income-amount">Amount</Label>
+                      <Input
+                        id="income-amount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={incomeAmount}
+                        onChange={(e) => setIncomeAmount(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="income-date">Date</Label>
+                      <Input
+                        id="income-date"
+                        type="date"
+                        required
+                        value={incomeDate}
+                        onChange={(e) => setIncomeDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="income-desc">
+                      Source <span className="text-muted-foreground">(optional)</span>
+                    </Label>
+                    <Textarea
+                      id="income-desc"
+                      rows={2}
+                      maxLength={500}
+                      placeholder="e.g. Salary, freelance"
+                      value={incomeDescription}
+                      onChange={(e) => setIncomeDescription(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={incomeSaving}>
+                      {incomeSaving ? "Saving..." : "Save income"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogContent>
               <DialogHeader>
