@@ -814,6 +814,7 @@ function Dashboard() {
               No data for this month yet
             </div>
           ) : (
+            <div key={flowMonth} className="animate-fade-in">
             <ResponsiveContainer
               width="100%"
               height={Math.max(320, monthFlow.nodes.length * 26)}
@@ -927,6 +928,7 @@ function Dashboard() {
                 />
               </Sankey>
             </ResponsiveContainer>
+            </div>
           )}
           {monthFlow && (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
