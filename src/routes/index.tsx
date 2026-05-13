@@ -329,6 +329,29 @@ function Dashboard() {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">To</Label>
               <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Min amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={filterMin}
+                onChange={(e) => setFilterMin(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Max amount</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="No limit"
+                value={filterMax}
+                onChange={(e) => setFilterMax(e.target.value)}
+              />
             </div>
           </div>
           {filtersActive && (
