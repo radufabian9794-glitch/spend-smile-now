@@ -181,7 +181,26 @@ function Dashboard() {
     [filtered]
   );
 
-  const filtersActive =
+  const byType = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of filtered) {
+      map.set(e.type, (map.get(e.type) ?? 0) + Number(e.amount));
+    }
+    return Array.from(map, ([name, value]) => ({ name, value })).sort(
+      (a, b) => b.value - a.value
+    );
+  }, [filtered]);
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of filtered) {
+      const ym = e.payment_date.slice(0, 7);
+      map.set(ym, (map.get(ym) ?? 0) + Number(e.amount));
+    }
+    return Array.from(map, ([month, total]) => ({ month, total })).sort((a, b) =>
+      a.month.localeCompare(b.month)
+    );
+  }, [filtered]);
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
