@@ -775,9 +775,38 @@ function Dashboard() {
                 nodePadding={24}
                 nodeWidth={12}
                 margin={{ top: 10, right: 140, bottom: 10, left: 80 }}
-                link={{ stroke: "var(--muted-foreground)", strokeOpacity: 0.25 }}
+                link={(props: SankeyLinkProps) => {
+                  const dim = activeLinkSet !== null && !activeLinkSet.has(props.index);
+                  const active = activeLinkSet?.has(props.index) ?? false;
+                  const srcNode = monthFlow.nodes[props.payload.source.index ?? props.payload.source];
+                  const tgtNode = monthFlow.nodes[props.payload.target.index ?? props.payload.target];
+                  let stroke = "var(--muted-foreground)";
+                  if (active) {
+                    if (tgtNode?.kind === "remaining") stroke = "var(--muted-foreground)";
+                    else if (srcNode?.kind === "category") stroke = colorFor(srcNode.name);
+                    else if (tgtNode?.kind === "category") stroke = colorFor(tgtNode.name);
+                    else stroke = "var(--primary)";
+                  }
+                  return (
+                    <SankeyLink
+                      {...props}
+                      stroke={stroke}
+                      strokeOpacity={active ? 0.7 : dim ? 0.08 : 0.25}
+                      onMouseEnter={() => setSankeyHover({ kind: "link", index: props.index })}
+                      onMouseLeave={() => setSankeyHover(null)}
+                    />
+                  );
+                }}
                 node={(props: SankeyNodeProps) => (
-                  <SankeyNode {...props} colorFor={colorFor} />
+                  <SankeyNode
+                    {...props}
+                    colorFor={colorFor}
+                    dim={activeNodeSet !== null && !activeNodeSet.has(props.index)}
+                    active={activeNodeSet?.has(props.index) ?? false}
+                    onHover={(i, hovering) =>
+                      setSankeyHover(hovering ? { kind: "node", index: i } : null)
+                    }
+                  />
                 )}
               >
                 <Tooltip
