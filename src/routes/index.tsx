@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { friendlyDbError } from "@/lib/db-errors";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings, TrendingUp } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
