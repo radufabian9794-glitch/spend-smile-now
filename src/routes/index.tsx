@@ -292,13 +292,59 @@ function Dashboard() {
           </Dialog>
         </div>
 
+        <Card className="p-4 space-y-3">
+          <div className="relative">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by type or description…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Type</Label>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">From</Label>
+              <Input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">To</Label>
+              <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+            </div>
+          </div>
+          {filtersActive && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {filtered.length} match{filtered.length === 1 ? "" : "es"} · ${filteredTotal.toFixed(2)}
+              </span>
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="size-4 mr-1" /> Clear
+              </Button>
+            </div>
+          )}
+        </Card>
+
         <Card className="divide-y">
           {expenses.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               No payments yet. Add your first one to get started.
             </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-10 text-center text-muted-foreground">
+              No payments match your filters.
+            </div>
           ) : (
-            expenses.map((e) => (
+            filtered.map((e) => (
               <div key={e.id} className="p-4 flex items-center gap-4">
                 <div className="size-10 rounded-lg bg-accent text-accent-foreground grid place-items-center text-xs font-semibold shrink-0">
                   {e.type.slice(0, 2).toUpperCase()}
