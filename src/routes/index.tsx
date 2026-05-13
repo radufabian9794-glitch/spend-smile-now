@@ -149,6 +149,12 @@ function Dashboard() {
   const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // account settings
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
+
   // filters
   const [filterType, setFilterType] = useState<string>("all");
   const [filterFrom, setFilterFrom] = useState("");
