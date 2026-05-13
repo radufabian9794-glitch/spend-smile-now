@@ -454,6 +454,80 @@ function Dashboard() {
     return { nodes, links };
   }, [spendExpenses, monthIncome, monthTotal]);
 
+  const [sankeyHover, setSankeyHover] = useState<
+    | { kind: "node"; index: number }
+    | { kind: "link"; index: number }
+    | null
+  >(null);
+
+  const activeLinkSet = useMemo(() => {
+    if (!monthFlow || !sankeyHover) return null;
+    const set = new Set<number>();
+    const { nodes, links } = monthFlow;
+    const incomeIdx = nodes.findIndex((n) => n.kind === "income");
+
+    const addPathThroughCategory = (catIdx: number) => {
+      links.forEach((l, i) => {
+        if (l.source === incomeIdx && l.target === catIdx) set.add(i);
+        if (l.source === catIdx) set.add(i);
+      });
+    };
+    const addPathThroughMerchant = (merIdx: number) => {
+      links.forEach((l, i) => {
+        if (l.target === merIdx) {
+          set.add(i);
+          const catIdx = l.source;
+          links.forEach((l2, j) => {
+            if (l2.source === incomeIdx && l2.target === catIdx) set.add(j);
+          });
+        }
+      });
+    };
+
+    if (sankeyHover.kind === "node") {
+      const node = nodes[sankeyHover.index];
+      if (!node) return set;
+      if (node.kind === "income") links.forEach((_, i) => set.add(i));
+      else if (node.kind === "remaining") {
+        links.forEach((l, i) => {
+          if (l.target === sankeyHover.index) set.add(i);
+        });
+      } else if (node.kind === "category") addPathThroughCategory(sankeyHover.index);
+      else if (node.kind === "merchant") addPathThroughMerchant(sankeyHover.index);
+    } else {
+      const link = links[sankeyHover.index];
+      if (!link) return set;
+      set.add(sankeyHover.index);
+      const srcNode = nodes[link.source];
+      const tgtNode = nodes[link.target];
+      if (srcNode?.kind === "category") {
+        links.forEach((l, i) => {
+          if (l.source === incomeIdx && l.target === link.source) set.add(i);
+        });
+      }
+      if (tgtNode?.kind === "category") {
+        links.forEach((l, i) => {
+          if (l.source === link.target) set.add(i);
+        });
+      }
+    }
+    return set;
+  }, [monthFlow, sankeyHover]);
+
+  const activeNodeSet = useMemo(() => {
+    if (!monthFlow || !activeLinkSet) return null;
+    const set = new Set<number>();
+    activeLinkSet.forEach((i) => {
+      const l = monthFlow.links[i];
+      if (l) {
+        set.add(l.source);
+        set.add(l.target);
+      }
+    });
+    return set;
+  }, [monthFlow, activeLinkSet]);
+
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
