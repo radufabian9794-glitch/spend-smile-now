@@ -466,6 +466,10 @@ function Dashboard() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="merchant">Merchant <span className="text-muted-foreground">(optional)</span></Label>
+                  <Input id="merchant" maxLength={120} placeholder="e.g. Whole Foods" value={merchant} onChange={(e) => setMerchant(e.target.value)} />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="desc">Description <span className="text-muted-foreground">(optional)</span></Label>
                   <Textarea id="desc" rows={2} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} />
                 </div>
