@@ -329,6 +329,7 @@ function Dashboard() {
             <div className="space-y-1">
               <Label className="text-xs text-muted-foreground">To</Label>
               <Input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+            </div>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1">
