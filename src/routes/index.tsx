@@ -718,6 +718,37 @@ function Dashboard() {
               </Sankey>
             </ResponsiveContainer>
           )}
+          {monthFlow && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="inline-block size-3 rounded-sm"
+                  style={{ background: "var(--primary)" }}
+                />
+                <span>{monthIncome > 0 ? "Income" : "Spending"}</span>
+              </div>
+              {monthFlow.nodes
+                .filter((n) => n.kind === "category")
+                .map((n) => (
+                  <div key={n.name} className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block size-3 rounded-sm"
+                      style={{ background: colorFor(n.name) }}
+                    />
+                    <span>{n.name}</span>
+                  </div>
+                ))}
+              {monthFlow.nodes.some((n) => n.kind === "remaining") && (
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block size-3 rounded-sm"
+                    style={{ background: "var(--muted-foreground)" }}
+                  />
+                  <span>Remaining (income left after spending)</span>
+                </div>
+              )}
+            </div>
+          )}
         </Card>
 
         <div className="flex items-center justify-between gap-2">
