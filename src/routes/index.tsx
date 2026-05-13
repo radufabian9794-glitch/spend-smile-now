@@ -1278,6 +1278,7 @@ function Dashboard() {
           onOpenChange={(o) => {
             setAccountOpen(o);
             if (!o) {
+              setCurrentPassword("");
               setNewPassword("");
               setConfirmPassword("");
             }
