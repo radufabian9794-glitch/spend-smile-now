@@ -276,6 +276,9 @@ function Dashboard() {
                   {e.description && <p className="text-sm text-muted-foreground truncate">{e.description}</p>}
                 </div>
                 <p className="font-semibold tabular-nums">${Number(e.amount).toFixed(2)}</p>
+                <Button variant="ghost" size="icon" onClick={() => openEdit(e)} aria-label="Edit">
+                  <Pencil className="size-4" />
+                </Button>
                 <Button variant="ghost" size="icon" onClick={() => removeExpense(e.id)} aria-label="Delete">
                   <Trash2 className="size-4" />
                 </Button>
