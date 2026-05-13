@@ -267,6 +267,13 @@ function Dashboard() {
       .reduce((s, e) => s + Number(e.amount), 0);
   }, [expenses]);
 
+  const yearTotal = useMemo(() => {
+    const y = new Date().getFullYear().toString();
+    return expenses
+      .filter((e) => e.payment_date.startsWith(y))
+      .reduce((s, e) => s + Number(e.amount), 0);
+  }, [expenses]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = filterMin === "" ? null : Number(filterMin);
