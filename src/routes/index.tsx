@@ -393,7 +393,17 @@ function Dashboard() {
     if (error) {
       setExpenses(prev);
       toast.error(error.message);
+    } else {
+      toast.success("Payment deleted");
     }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    await removeExpense(pendingDelete.id);
+    setDeleting(false);
+    setPendingDelete(null);
   };
 
   const signOut = async () => {
