@@ -666,6 +666,12 @@ function Dashboard() {
           categories={categories}
           onChanged={loadCategories}
         />
+
+        <datalist id="merchant-suggestions">
+          {merchantSuggestions.map((m) => (
+            <option key={m} value={m} />
+          ))}
+        </datalist>
       </main>
     </div>
   );
