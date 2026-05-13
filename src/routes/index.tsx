@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X, Moon, Sun, Tags, Check, Settings } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import {
   DropdownMenu,
@@ -148,6 +148,12 @@ function Dashboard() {
   // delete confirmation
   const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // account settings
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwSaving, setPwSaving] = useState(false);
 
   // filters
   const [filterType, setFilterType] = useState<string>("all");
@@ -461,6 +467,19 @@ function Dashboard() {
     navigate({ to: "/auth" });
   };
 
+  const changePassword = async () => {
+    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword !== confirmPassword) return toast.error("Passwords don't match");
+    setPwSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setPwSaving(false);
+    if (error) return toast.error(error.message);
+    setNewPassword("");
+    setConfirmPassword("");
+    setAccountOpen(false);
+    toast.success("Password updated");
+  };
+
   if (!ready || !session) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading…</div>;
   }
@@ -489,6 +508,9 @@ function Dashboard() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel className="truncate">{session.user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setAccountOpen(true)}>
+                  <Settings className="size-4 mr-2" /> Account settings
+                </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void signOut()}>
                   <LogOut className="size-4 mr-2" /> Sign out
                 </DropdownMenuItem>
@@ -895,6 +917,59 @@ function Dashboard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog
+          open={accountOpen}
+          onOpenChange={(o) => {
+            setAccountOpen(o);
+            if (!o) {
+              setNewPassword("");
+              setConfirmPassword("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Account settings</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Email</Label>
+                <div className="text-sm font-medium">{session.user.email}</div>
+              </div>
+              <div className="space-y-3 border-t pt-4">
+                <div className="text-sm font-medium">Change password</div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-pw">New password</Label>
+                  <Input
+                    id="new-pw"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-pw">Confirm password</Label>
+                  <Input
+                    id="confirm-pw"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setAccountOpen(false)} disabled={pwSaving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void changePassword()} disabled={pwSaving || !newPassword}>
+                {pwSaving ? "Saving..." : "Update password"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
 
       <Button
