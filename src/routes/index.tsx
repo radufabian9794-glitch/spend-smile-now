@@ -23,7 +23,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Wallet, LogOut, Trash2, Pencil } from "lucide-react";
+import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
