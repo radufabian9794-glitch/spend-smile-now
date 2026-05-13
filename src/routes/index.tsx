@@ -69,6 +69,7 @@ export const Route = createFileRoute("/")({
 });
 
 const FALLBACK_COLOR = "#64748b";
+const INCOME_TYPE = "__income";
 
 /** Trim and collapse internal whitespace; returns null when empty. */
 function cleanMerchant(raw: string | null | undefined): string | null {
