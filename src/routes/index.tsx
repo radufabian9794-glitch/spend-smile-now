@@ -396,7 +396,64 @@ function Dashboard() {
       .map((g) => g.name);
   }, [expenses]);
 
-  const filtersActive =
+  const monthFlow = useMemo(() => {
+    const ym = new Date().toISOString().slice(0, 7);
+    const monthSpend = spendExpenses.filter((e) => e.payment_date.startsWith(ym));
+    const remaining = monthIncome - monthTotal;
+    if (monthSpend.length === 0 && monthIncome === 0) return null;
+
+    const catTotals = new Map<string, number>();
+    const catMerchant = new Map<string, Map<string, number>>();
+    for (const e of monthSpend) {
+      const cat = e.type;
+      const merchant = cleanMerchant(e.merchant) ?? "(no merchant)";
+      catTotals.set(cat, (catTotals.get(cat) ?? 0) + Number(e.amount));
+      let m = catMerchant.get(cat);
+      if (!m) {
+        m = new Map();
+        catMerchant.set(cat, m);
+      }
+      m.set(merchant, (m.get(merchant) ?? 0) + Number(e.amount));
+    }
+
+    type NodeKind = "income" | "category" | "merchant" | "remaining";
+    const nodes: { name: string; kind: NodeKind }[] = [];
+    const indexOf = new Map<string, number>();
+    const addNode = (key: string, name: string, kind: NodeKind) => {
+      const existing = indexOf.get(key);
+      if (existing !== undefined) return existing;
+      indexOf.set(key, nodes.length);
+      nodes.push({ name, kind });
+      return nodes.length - 1;
+    };
+
+    const links: { source: number; target: number; value: number }[] = [];
+    const sourceLabel = monthIncome > 0 ? "Income" : "Spending";
+    const incomeIdx = addNode("__income", sourceLabel, "income");
+
+    const sortedCats = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1]);
+    for (const [cat, total] of sortedCats) {
+      if (total <= 0) continue;
+      const catIdx = addNode(`cat:${cat}`, cat, "category");
+      links.push({ source: incomeIdx, target: catIdx, value: total });
+      const m = catMerchant.get(cat)!;
+      const sortedMerchants = Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+      for (const [merchant, val] of sortedMerchants) {
+        if (val <= 0) continue;
+        const mIdx = addNode(`mer:${merchant}`, merchant, "merchant");
+        links.push({ source: catIdx, target: mIdx, value: val });
+      }
+    }
+
+    if (monthIncome > 0 && remaining > 0) {
+      const rIdx = addNode("__remaining", "Remaining", "remaining");
+      links.push({ source: incomeIdx, target: rIdx, value: remaining });
+    }
+
+    if (links.length === 0) return null;
+    return { nodes, links };
+  }, [spendExpenses, monthIncome, monthTotal]);
+
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
   const clearFilters = () => {
