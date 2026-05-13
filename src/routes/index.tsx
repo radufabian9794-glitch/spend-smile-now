@@ -469,6 +469,8 @@ function Dashboard() {
     setIncomeDescription("");
     toast.success("Income added");
   };
+
+  const restoreExpense = async (exp: Expense) => {
     const userId = session?.user.id;
     if (!userId) return toast.error("Not signed in");
     setExpenses((cur) =>
