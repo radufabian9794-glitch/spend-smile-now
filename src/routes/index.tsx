@@ -743,7 +743,7 @@ function Dashboard() {
                 <Button variant="ghost" size="icon" onClick={() => openEdit(e)} aria-label="Edit">
                   <Pencil className="size-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => removeExpense(e.id)} aria-label="Delete">
+                <Button variant="ghost" size="icon" onClick={() => setPendingDelete(e)} aria-label="Delete">
                   <Trash2 className="size-4" />
                 </Button>
               </div>
