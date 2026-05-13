@@ -191,7 +191,7 @@ function Dashboard() {
       .select()
       .single();
     setEditSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => prev.map((x) => (x.id === editing.id ? (data as Expense) : x)));
     setEditing(null);
     toast.success("Payment updated");
@@ -218,7 +218,7 @@ function Dashboard() {
       .order("payment_date", { ascending: false })
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
-        if (error) return toast.error(error.message);
+        if (error) return toast.error(friendlyDbError(error));
         setExpenses((data ?? []) as Expense[]);
       });
   }, [session]);
@@ -228,7 +228,7 @@ function Dashboard() {
       .from("categories")
       .select("id, name, color")
       .order("name", { ascending: true });
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     const cats = (data ?? []) as Category[];
     setCategories(cats);
     setType((prev) => (cats.some((c) => c.name === prev) ? prev : cats[0]?.name ?? ""));
@@ -587,7 +587,7 @@ function Dashboard() {
       .select()
       .single();
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => [data as Expense, ...prev]);
     setOpen(false);
     setAmount("");
@@ -615,7 +615,7 @@ function Dashboard() {
       .select()
       .single();
     setIncomeSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setExpenses((prev) => [data as Expense, ...prev]);
     setIncomeOpen(false);
     setIncomeAmount("");
@@ -654,7 +654,7 @@ function Dashboard() {
     const { error } = await supabase.from("expenses").delete().eq("id", exp.id);
     if (error) {
       setExpenses(prev);
-      toast.error(error.message);
+      toast.error(friendlyDbError(error));
     } else {
       toast.success("Payment deleted", {
         action: {
@@ -686,7 +686,7 @@ function Dashboard() {
     setPwSaving(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setPwSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setNewPassword("");
     setConfirmPassword("");
     setAccountOpen(false);
@@ -1526,7 +1526,7 @@ function ManageCategoriesDialog({
       .from("categories")
       .insert({ user_id: userId, name, color: newColor });
     setAdding(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     setNewName("");
     setNewColor(PRESET_COLORS[0]);
     await onChanged();
@@ -1535,14 +1535,14 @@ function ManageCategoriesDialog({
 
   const updateCategory = async (id: string, patch: { name?: string; color?: string }) => {
     const { error } = await supabase.from("categories").update(patch).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     await onChanged();
   };
 
   const removeCategory = async (id: string, name: string) => {
     if (!confirm(`Delete category "${name}"? Existing payments keep this label.`)) return;
     const { error } = await supabase.from("categories").delete().eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(friendlyDbError(error));
     await onChanged();
     toast.success("Category deleted");
   };
