@@ -68,6 +68,7 @@ type Expense = {
   amount: number;
   payment_date: string;
   description: string | null;
+  merchant: string | null;
   created_at: string;
 };
 
