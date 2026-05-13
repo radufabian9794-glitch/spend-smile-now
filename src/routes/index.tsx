@@ -45,17 +45,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   Tooltip,
-  Legend,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  LabelList,
+  Sankey,
+  Layer,
+  Rectangle,
 } from "recharts";
 
 export const Route = createFileRoute("/")({
@@ -403,6 +396,64 @@ function Dashboard() {
       .map((g) => g.name);
   }, [expenses]);
 
+  const monthFlow = useMemo(() => {
+    const ym = new Date().toISOString().slice(0, 7);
+    const monthSpend = spendExpenses.filter((e) => e.payment_date.startsWith(ym));
+    const remaining = monthIncome - monthTotal;
+    if (monthSpend.length === 0 && monthIncome === 0) return null;
+
+    const catTotals = new Map<string, number>();
+    const catMerchant = new Map<string, Map<string, number>>();
+    for (const e of monthSpend) {
+      const cat = e.type;
+      const merchant = cleanMerchant(e.merchant) ?? "(no merchant)";
+      catTotals.set(cat, (catTotals.get(cat) ?? 0) + Number(e.amount));
+      let m = catMerchant.get(cat);
+      if (!m) {
+        m = new Map();
+        catMerchant.set(cat, m);
+      }
+      m.set(merchant, (m.get(merchant) ?? 0) + Number(e.amount));
+    }
+
+    type NodeKind = "income" | "category" | "merchant" | "remaining";
+    const nodes: { name: string; kind: NodeKind }[] = [];
+    const indexOf = new Map<string, number>();
+    const addNode = (key: string, name: string, kind: NodeKind) => {
+      const existing = indexOf.get(key);
+      if (existing !== undefined) return existing;
+      indexOf.set(key, nodes.length);
+      nodes.push({ name, kind });
+      return nodes.length - 1;
+    };
+
+    const links: { source: number; target: number; value: number }[] = [];
+    const sourceLabel = monthIncome > 0 ? "Income" : "Spending";
+    const incomeIdx = addNode("__income", sourceLabel, "income");
+
+    const sortedCats = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1]);
+    for (const [cat, total] of sortedCats) {
+      if (total <= 0) continue;
+      const catIdx = addNode(`cat:${cat}`, cat, "category");
+      links.push({ source: incomeIdx, target: catIdx, value: total });
+      const m = catMerchant.get(cat)!;
+      const sortedMerchants = Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
+      for (const [merchant, val] of sortedMerchants) {
+        if (val <= 0) continue;
+        const mIdx = addNode(`mer:${merchant}`, merchant, "merchant");
+        links.push({ source: catIdx, target: mIdx, value: val });
+      }
+    }
+
+    if (monthIncome > 0 && remaining > 0) {
+      const rIdx = addNode("__remaining", "Remaining", "remaining");
+      links.push({ source: incomeIdx, target: rIdx, value: remaining });
+    }
+
+    if (links.length === 0) return null;
+    return { nodes, links };
+  }, [spendExpenses, monthIncome, monthTotal]);
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
@@ -629,140 +680,45 @@ function Dashboard() {
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-4">
-          <Card className="p-5">
-            <p className="text-sm font-medium mb-3">Spending by type</p>
-            {byType.length === 0 ? (
-              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
-                No data to display
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={byType}
-                    dataKey="value"
-                    nameKey="name"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={2}
-                  >
-                    {byType.map((entry) => (
-                      <Cell key={entry.name} fill={colorFor(entry.name)} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v: number) => `$${Number(v).toFixed(2)}`}
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      color: "var(--popover-foreground)",
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-
-          <Card className="p-5">
-            <p className="text-sm font-medium mb-3">Spending by month</p>
-            {byMonth.length === 0 ? (
-              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
-                No data to display
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={byMonth} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                    stroke="var(--border)"
-                    tickLine={{ stroke: "var(--border)" }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                    stroke="var(--border)"
-                    tickLine={{ stroke: "var(--border)" }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "var(--accent)", opacity: 0.3 }}
-                    formatter={(v: number) => `$${Number(v).toFixed(2)}`}
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      color: "var(--popover-foreground)",
-                    }}
-                  />
-                  <Bar dataKey="total" fill="var(--primary)" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-
-          <Card className="p-5 lg:col-span-2">
-            <p className="text-sm font-medium mb-3">Top merchants by spend</p>
-            {byMerchant.length === 0 ? (
-              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
-                No merchant data to display
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height={Math.max(180, byMerchant.length * 38)}>
-                <BarChart
-                  data={byMerchant}
-                  layout="vertical"
-                  margin={{ top: 5, right: 16, left: 8, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                    stroke="var(--border)"
-                    tickLine={{ stroke: "var(--border)" }}
-                    tickFormatter={(v) => `$${Number(v).toFixed(0)}`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={120}
-                    tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
-                    stroke="var(--border)"
-                    tickLine={{ stroke: "var(--border)" }}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "var(--accent)", opacity: 0.3 }}
-                    formatter={(v: number, _n, item) => {
-                      const count = Number(item?.payload?.count ?? 0);
-                      const avg = Number(item?.payload?.avg ?? 0);
-                      const pct = Number(item?.payload?.pct ?? 0);
-                      return [
-                        `$${Number(v).toFixed(2)} total · ${pct.toFixed(1)}% of spend · avg $${avg.toFixed(2)}`,
-                        `${count} payment${count === 1 ? "" : "s"}`,
-                      ];
-                    }}
-                    contentStyle={{
-                      background: "var(--popover)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      color: "var(--popover-foreground)",
-                    }}
-                  />
-                  <Bar dataKey="total" fill="var(--primary)" radius={[0, 6, 6, 0]}>
-                    <LabelList
-                      dataKey="pct"
-                      position="right"
-                      formatter={(v: number) => `${Number(v).toFixed(1)}%`}
-                      style={{ fill: "var(--muted-foreground)", fontSize: 11 }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-        </div>
+        <Card className="p-5">
+          <div className="flex items-baseline justify-between mb-3">
+            <p className="text-sm font-medium">Money flow this month</p>
+            <p className="text-xs text-muted-foreground">
+              {monthIncome > 0 ? "Income" : "Spending"} → categories → merchants
+            </p>
+          </div>
+          {!monthFlow ? (
+            <div className="h-[320px] grid place-items-center text-sm text-muted-foreground">
+              No data for this month yet
+            </div>
+          ) : (
+            <ResponsiveContainer
+              width="100%"
+              height={Math.max(320, monthFlow.nodes.length * 26)}
+            >
+              <Sankey
+                data={monthFlow}
+                nodePadding={24}
+                nodeWidth={12}
+                margin={{ top: 10, right: 140, bottom: 10, left: 80 }}
+                link={{ stroke: "var(--muted-foreground)", strokeOpacity: 0.25 }}
+                node={(props: SankeyNodeProps) => (
+                  <SankeyNode {...props} colorFor={colorFor} />
+                )}
+              >
+                <Tooltip
+                  formatter={(v: number) => `$${Number(v).toFixed(2)}`}
+                  contentStyle={{
+                    background: "var(--popover)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    color: "var(--popover-foreground)",
+                  }}
+                />
+              </Sankey>
+            </ResponsiveContainer>
+          )}
+        </Card>
 
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">Recent payments</h2>
@@ -1132,6 +1088,60 @@ function Dashboard() {
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
+  );
+}
+
+type SankeyNodeKind = "income" | "category" | "merchant" | "remaining";
+
+type SankeyNodeProps = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  index: number;
+  payload: { name: string; kind: SankeyNodeKind; value: number };
+};
+
+function SankeyNode({
+  x,
+  y,
+  width,
+  height,
+  payload,
+  colorFor,
+}: SankeyNodeProps & { colorFor: (name: string) => string }) {
+  const isLeft = payload.kind === "income";
+  const isRight = payload.kind === "merchant" || payload.kind === "remaining";
+  const fill =
+    payload.kind === "income"
+      ? "var(--primary)"
+      : payload.kind === "remaining"
+        ? "var(--muted-foreground)"
+        : payload.kind === "category"
+          ? colorFor(payload.name)
+          : "var(--accent-foreground)";
+  return (
+    <Layer>
+      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} />
+      <text
+        x={isLeft ? x - 8 : isRight ? x + width + 8 : x + width + 8}
+        y={y + height / 2}
+        textAnchor={isLeft ? "end" : "start"}
+        dominantBaseline="middle"
+        style={{ fill: "var(--foreground)", fontSize: 12 }}
+      >
+        {payload.name}
+      </text>
+      <text
+        x={isLeft ? x - 8 : x + width + 8}
+        y={y + height / 2 + 14}
+        textAnchor={isLeft ? "end" : "start"}
+        dominantBaseline="middle"
+        style={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+      >
+        ${payload.value.toFixed(2)}
+      </text>
+    </Layer>
   );
 }
 
