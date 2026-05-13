@@ -396,11 +396,37 @@ function Dashboard() {
       .map((g) => g.name);
   }, [expenses]);
 
+  const [flowMonth, setFlowMonth] = useState<string>(() =>
+    new Date().toISOString().slice(0, 7),
+  );
+
+  const availableFlowMonths = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of expenses) set.add(e.payment_date.slice(0, 7));
+    set.add(new Date().toISOString().slice(0, 7));
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [expenses]);
+
+  const flowMonthIncome = useMemo(
+    () =>
+      incomeExpenses
+        .filter((e) => e.payment_date.startsWith(flowMonth))
+        .reduce((s, e) => s + Number(e.amount), 0),
+    [incomeExpenses, flowMonth],
+  );
+  const flowMonthTotal = useMemo(
+    () =>
+      spendExpenses
+        .filter((e) => e.payment_date.startsWith(flowMonth))
+        .reduce((s, e) => s + Number(e.amount), 0),
+    [spendExpenses, flowMonth],
+  );
+
   const monthFlow = useMemo(() => {
-    const ym = new Date().toISOString().slice(0, 7);
+    const ym = flowMonth;
     const monthSpend = spendExpenses.filter((e) => e.payment_date.startsWith(ym));
-    const remaining = monthIncome - monthTotal;
-    if (monthSpend.length === 0 && monthIncome === 0) return null;
+    const remaining = flowMonthIncome - flowMonthTotal;
+    if (monthSpend.length === 0 && flowMonthIncome === 0) return null;
 
     const catTotals = new Map<string, number>();
     const catMerchant = new Map<string, Map<string, number>>();
@@ -428,7 +454,7 @@ function Dashboard() {
     };
 
     const links: { source: number; target: number; value: number }[] = [];
-    const sourceLabel = monthIncome > 0 ? "Income" : "Spending";
+    const sourceLabel = flowMonthIncome > 0 ? "Income" : "Spending";
     const incomeIdx = addNode("__income", sourceLabel, "income");
 
     const sortedCats = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1]);
@@ -445,14 +471,15 @@ function Dashboard() {
       }
     }
 
-    if (monthIncome > 0 && remaining > 0) {
+    if (flowMonthIncome > 0 && remaining > 0) {
       const rIdx = addNode("__remaining", "Remaining", "remaining");
       links.push({ source: incomeIdx, target: rIdx, value: remaining });
     }
 
     if (links.length === 0) return null;
     return { nodes, links };
-  }, [spendExpenses, monthIncome, monthTotal]);
+  }, [spendExpenses, flowMonth, flowMonthIncome, flowMonthTotal]);
+
 
   const [sankeyHover, setSankeyHover] = useState<
     | { kind: "node"; index: number }
