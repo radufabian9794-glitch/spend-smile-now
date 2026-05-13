@@ -770,9 +770,6 @@ function Dashboard() {
             <Button variant="outline" onClick={() => setManageOpen(true)}>
               <Tags className="size-4 mr-1" /> Categories
             </Button>
-            <Button variant="outline" onClick={() => setIncomeOpen(true)}>
-              <TrendingUp className="size-4 mr-1" /> Income
-            </Button>
             <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
               <DialogContent>
                 <DialogHeader>
