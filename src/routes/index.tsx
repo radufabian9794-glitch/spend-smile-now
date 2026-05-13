@@ -25,6 +25,19 @@ import {
 import { toast } from "sonner";
 import { Plus, Wallet, LogOut, Trash2, Pencil, Search, X } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from "recharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,6 +50,17 @@ export const Route = createFileRoute("/")({
 });
 
 const TYPES = ["Food", "Transport", "Housing", "Entertainment", "Health", "Shopping", "Bills", "Other"];
+
+const PIE_COLORS = [
+  "hsl(160 84% 39%)",
+  "hsl(199 89% 48%)",
+  "hsl(38 92% 50%)",
+  "hsl(271 91% 65%)",
+  "hsl(0 84% 60%)",
+  "hsl(173 58% 39%)",
+  "hsl(280 65% 60%)",
+  "hsl(220 70% 50%)",
+];
 
 type Expense = {
   id: string;
@@ -168,6 +192,27 @@ function Dashboard() {
     [filtered]
   );
 
+  const byType = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of filtered) {
+      map.set(e.type, (map.get(e.type) ?? 0) + Number(e.amount));
+    }
+    return Array.from(map, ([name, value]) => ({ name, value })).sort(
+      (a, b) => b.value - a.value
+    );
+  }, [filtered]);
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const e of filtered) {
+      const ym = e.payment_date.slice(0, 7);
+      map.set(ym, (map.get(ym) ?? 0) + Number(e.amount));
+    }
+    return Array.from(map, ([month, total]) => ({ month, total })).sort((a, b) =>
+      a.month.localeCompare(b.month)
+    );
+  }, [filtered]);
+
   const filtersActive =
     filterType !== "all" || !!filterFrom || !!filterTo || !!filterMin || !!filterMax || !!search.trim();
 
@@ -254,6 +299,72 @@ function Dashboard() {
           <Card className="p-5">
             <p className="text-sm text-muted-foreground">All time</p>
             <p className="text-3xl font-bold mt-1">${total.toFixed(2)}</p>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-4">
+          <Card className="p-5">
+            <p className="text-sm font-medium mb-3">Spending by type</p>
+            {byType.length === 0 ? (
+              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
+                No data to display
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie
+                    data={byType}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={50}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {byType.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v: number) => `$${Number(v).toFixed(2)}`}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </Card>
+
+          <Card className="p-5">
+            <p className="text-sm font-medium mb-3">Spending by month</p>
+            {byMonth.length === 0 ? (
+              <div className="h-[260px] grid place-items-center text-sm text-muted-foreground">
+                No data to display
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={byMonth} margin={{ top: 5, right: 8, left: -16, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
+                    formatter={(v: number) => `$${Number(v).toFixed(2)}`}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      color: "hsl(var(--popover-foreground))",
+                    }}
+                  />
+                  <Bar dataKey="total" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </Card>
         </div>
 
