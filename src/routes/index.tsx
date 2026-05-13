@@ -658,3 +658,171 @@ function Dashboard() {
     </div>
   );
 }
+
+const PRESET_COLORS = [
+  "#22c55e", "#0ea5e9", "#f59e0b", "#a855f7",
+  "#ef4444", "#14b8a6", "#6366f1", "#64748b",
+  "#ec4899", "#84cc16", "#f97316", "#06b6d4",
+];
+
+function ColorPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 items-center">
+      {PRESET_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          onClick={() => onChange(c)}
+          className="size-6 rounded-full border border-border grid place-items-center"
+          style={{ background: c }}
+          aria-label={`Choose ${c}`}
+        >
+          {value.toLowerCase() === c.toLowerCase() && <Check className="size-3.5 text-white" />}
+        </button>
+      ))}
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="size-6 rounded-full overflow-hidden border border-border bg-transparent cursor-pointer"
+        aria-label="Custom color"
+      />
+    </div>
+  );
+}
+
+function ManageCategoriesDialog({
+  open,
+  onOpenChange,
+  userId,
+  categories,
+  onChanged,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  userId: string;
+  categories: Category[];
+  onChanged: () => Promise<void> | void;
+}) {
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState(PRESET_COLORS[0]);
+  const [adding, setAdding] = useState(false);
+
+  const addCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return toast.error("Enter a category name");
+    if (categories.some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+      return toast.error("A category with that name already exists");
+    }
+    setAdding(true);
+    const { error } = await supabase
+      .from("categories")
+      .insert({ user_id: userId, name, color: newColor });
+    setAdding(false);
+    if (error) return toast.error(error.message);
+    setNewName("");
+    setNewColor(PRESET_COLORS[0]);
+    await onChanged();
+    toast.success("Category added");
+  };
+
+  const updateCategory = async (id: string, patch: { name?: string; color?: string }) => {
+    const { error } = await supabase.from("categories").update(patch).eq("id", id);
+    if (error) return toast.error(error.message);
+    await onChanged();
+  };
+
+  const removeCategory = async (id: string, name: string) => {
+    if (!confirm(`Delete category "${name}"? Existing payments keep this label.`)) return;
+    const { error } = await supabase.from("categories").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    await onChanged();
+    toast.success("Category deleted");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Manage categories</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+          {categories.map((c) => (
+            <CategoryRow
+              key={c.id}
+              category={c}
+              onSave={(patch) => updateCategory(c.id, patch)}
+              onDelete={() => removeCategory(c.id, c.name)}
+            />
+          ))}
+          {categories.length === 0 && (
+            <p className="text-sm text-muted-foreground">No categories yet.</p>
+          )}
+        </div>
+
+        <form onSubmit={addCategory} className="border-t pt-4 space-y-3">
+          <Label className="text-sm">Add a new category</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Category name"
+              maxLength={40}
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <Button type="submit" disabled={adding}>
+              <Plus className="size-4 mr-1" /> Add
+            </Button>
+          </div>
+          <ColorPicker value={newColor} onChange={setNewColor} />
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CategoryRow({
+  category,
+  onSave,
+  onDelete,
+}: {
+  category: Category;
+  onSave: (patch: { name?: string; color?: string }) => Promise<void>;
+  onDelete: () => void;
+}) {
+  const [name, setName] = useState(category.name);
+  const [color, setColor] = useState(category.color);
+  const dirty = name.trim() !== category.name || color !== category.color;
+
+  useEffect(() => {
+    setName(category.name);
+    setColor(category.color);
+  }, [category.id, category.name, category.color]);
+
+  const save = async () => {
+    const trimmed = name.trim();
+    if (!trimmed) return toast.error("Name can't be empty");
+    await onSave({ name: trimmed, color });
+    toast.success("Category updated");
+  };
+
+  return (
+    <div className="rounded-lg border p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span
+          className="size-4 rounded-full shrink-0 border border-border"
+          style={{ background: color }}
+        />
+        <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={40} />
+        {dirty && (
+          <Button size="sm" onClick={save}>Save</Button>
+        )}
+        <Button size="icon" variant="ghost" onClick={onDelete} aria-label="Delete category">
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+      <ColorPicker value={color} onChange={setColor} />
+    </div>
+  );
+}
