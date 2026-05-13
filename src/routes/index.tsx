@@ -583,7 +583,10 @@ function Dashboard() {
           ) : (
             filtered.map((e) => (
               <div key={e.id} className="p-4 flex items-center gap-4">
-                <div className="size-10 rounded-lg bg-accent text-accent-foreground grid place-items-center text-xs font-semibold shrink-0">
+                <div
+                  className="size-10 rounded-lg grid place-items-center text-xs font-semibold shrink-0 text-white"
+                  style={{ background: colorFor(e.type) }}
+                >
                   {e.type.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
