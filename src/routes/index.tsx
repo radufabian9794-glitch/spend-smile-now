@@ -51,6 +51,13 @@ export const Route = createFileRoute("/")({
 
 const FALLBACK_COLOR = "#64748b";
 
+/** Trim and collapse internal whitespace; returns null when empty. */
+function cleanMerchant(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.replace(/\s+/g, " ").trim();
+  return cleaned || null;
+}
+
 type Category = {
   id: string;
   name: string;
