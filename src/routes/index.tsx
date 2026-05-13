@@ -683,7 +683,7 @@ function Dashboard() {
 
   const changePassword = async () => {
     if (!currentPassword) return toast.error("Enter your current password");
-    if (newPassword.length < 6) return toast.error("Password must be at least 6 characters");
+    if (newPassword.length < 8) return toast.error("Password must be at least 8 characters");
     if (newPassword !== confirmPassword) return toast.error("Passwords don't match");
     if (newPassword === currentPassword)
       return toast.error("New password must be different from the current one");
