@@ -73,6 +73,8 @@ function Dashboard() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [search, setSearch] = useState("");
+  const [filterMin, setFilterMin] = useState("");
+  const [filterMax, setFilterMax] = useState("");
 
   const openEdit = (e: Expense) => {
     setEditing(e);
