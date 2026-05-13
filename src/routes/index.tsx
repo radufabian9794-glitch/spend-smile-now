@@ -795,6 +795,43 @@ function Dashboard() {
             <option key={m} value={m} />
           ))}
         </datalist>
+
+        <AlertDialog
+          open={!!pendingDelete}
+          onOpenChange={(o) => !o && !deleting && setPendingDelete(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this payment?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {pendingDelete && (
+                  <>
+                    This will permanently remove{" "}
+                    <span className="font-medium text-foreground">
+                      {pendingDelete.type}
+                      {pendingDelete.merchant ? ` · ${pendingDelete.merchant}` : ""} · $
+                      {Number(pendingDelete.amount).toFixed(2)}
+                    </span>{" "}
+                    on {pendingDelete.payment_date}. This action can't be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmDelete();
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
 
       <Button
