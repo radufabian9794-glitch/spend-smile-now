@@ -935,7 +935,7 @@ function Dashboard() {
                   className="inline-block size-3 rounded-sm"
                   style={{ background: "var(--primary)" }}
                 />
-                <span>{monthIncome > 0 ? "Income" : "Spending"}</span>
+                <span>{flowMonthIncome > 0 ? "Income" : "Spending"}</span>
               </div>
               {monthFlow.nodes
                 .filter((n) => n.kind === "category")
