@@ -1,0 +1,11 @@
+node_modules
+.output
+.wrangler
+dist
+.git
+.lovable
+.env
+.env.*
+!.env.docker.example
+*.log
+tsconfig.tsbuildinfo
