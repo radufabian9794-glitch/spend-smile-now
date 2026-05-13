@@ -1091,6 +1091,60 @@ function Dashboard() {
   );
 }
 
+type SankeyNodeKind = "income" | "category" | "merchant" | "remaining";
+
+type SankeyNodeProps = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  index: number;
+  payload: { name: string; kind: SankeyNodeKind; value: number };
+};
+
+function SankeyNode({
+  x,
+  y,
+  width,
+  height,
+  payload,
+  colorFor,
+}: SankeyNodeProps & { colorFor: (name: string) => string }) {
+  const isLeft = payload.kind === "income";
+  const isRight = payload.kind === "merchant" || payload.kind === "remaining";
+  const fill =
+    payload.kind === "income"
+      ? "var(--primary)"
+      : payload.kind === "remaining"
+        ? "var(--muted-foreground)"
+        : payload.kind === "category"
+          ? colorFor(payload.name)
+          : "var(--accent-foreground)";
+  return (
+    <Layer>
+      <Rectangle x={x} y={y} width={width} height={height} fill={fill} fillOpacity={0.9} />
+      <text
+        x={isLeft ? x - 8 : isRight ? x + width + 8 : x + width + 8}
+        y={y + height / 2}
+        textAnchor={isLeft ? "end" : "start"}
+        dominantBaseline="middle"
+        style={{ fill: "var(--foreground)", fontSize: 12 }}
+      >
+        {payload.name}
+      </text>
+      <text
+        x={isLeft ? x - 8 : x + width + 8}
+        y={y + height / 2 + 14}
+        textAnchor={isLeft ? "end" : "start"}
+        dominantBaseline="middle"
+        style={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+      >
+        ${payload.value.toFixed(2)}
+      </text>
+    </Layer>
+  );
+}
+
 const PRESET_COLORS = [
   "#22c55e", "#0ea5e9", "#f59e0b", "#a855f7",
   "#ef4444", "#14b8a6", "#6366f1", "#64748b",
