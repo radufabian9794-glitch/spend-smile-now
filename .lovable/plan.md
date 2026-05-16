@@ -41,14 +41,20 @@ Generate the three secrets:
 openssl rand -base64 40 | tr -d '\n='; echo
 
 # install the JWT helper once (Node ships via Docker so we don't need it system-wide)
-docker run --rm -v "$PWD":/w -w /w node:20-alpine sh -c \
+# IMPORTANT: pass JWT_SECRET with `-e` BEFORE the image name so Docker injects it
+# as an env var inside the container. Appending `JWT_SECRET=...` after the closing
+# quote makes it a positional shell argument and the secret will be empty,
+# causing `jwt.sign` to fail with "secretOrPrivateKey must have a value".
+docker run --rm \
+  -e JWT_SECRET='<paste-the-jwt-secret-here>' \
+  -v "$PWD":/w -w /w node:20-alpine sh -c \
   'npm i --silent jsonwebtoken && node -e "
     const jwt = require(\"jsonwebtoken\");
     const s = process.env.JWT_SECRET;
     const exp = Math.floor(Date.now()/1000) + 60*60*24*365*10;
     console.log(\"ANON_KEY=\" + jwt.sign({role:\"anon\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
     console.log(\"SERVICE_ROLE_KEY=\" + jwt.sign({role:\"service_role\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
-  "' JWT_SECRET=<paste-the-jwt-secret-here>
+  "'
 ```
 
 Open `.env.docker` in a text editor and paste in:
