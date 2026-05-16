@@ -159,3 +159,57 @@ Once you reply, I'll add the Caddy files and update the README. Then you follow 
 - **Not reachable from the internet.** This setup is LAN/local-only. To expose publicly later, you'd open ports 80/443 on your router and switch DNS to your public IP (or front it with Cloudflare Tunnel — happy to add that in a follow-up).
 - **No backups are scheduled.** The `pg_dump` command above is manual. I can add a nightly backup cron container if you want.
 - **AI features still call Lovable's hosted gateway** via `LOVABLE_API_KEY`. To remove that dependency, the app code would need to point at OpenAI/Google directly — separate task.
+
+---
+
+## Troubleshooting
+
+### `bun install --frozen-lockfile` exits 1 during `docker compose build`
+
+**Symptom**
+
+```
+[build 4/6] RUN bun install --frozen-lockfile
+failed to solve: process "/bin/sh -c bun install --frozen-lockfile"
+did not complete successfully: exit code: 1
+```
+
+**Cause**
+
+`bun.lock` is out of sync with `package.json`. The `--frozen-lockfile` flag refuses to update the lockfile and exits 1. (Less common: a transient network/registry error during install.)
+
+**See the real bun error first**
+
+Docker truncates the output. Re-run with plain progress to see what bun actually printed:
+
+```bash
+docker compose --env-file .env.docker build --no-cache --progress=plain app 2>&1 | tail -80
+```
+
+Look for `lockfile had changes`, `Cannot find package`, or a network timeout.
+
+**Fix A — regenerate the lockfile (recommended)**
+
+On the host:
+
+```bash
+bun install
+docker compose --env-file .env.docker up -d --build
+```
+
+If `bun` isn't installed on the host, use a one-shot container:
+
+```bash
+docker run --rm -v "$PWD":/app -w /app oven/bun:1 bun install
+docker compose --env-file .env.docker up -d --build
+```
+
+**Fix B — relax the flag**
+
+Edit `Dockerfile` line 6:
+
+```dockerfile
+RUN bun install
+```
+
+Trade-off: the container can resolve newer versions than the lockfile pins. Fine for self-hosting; less reproducible than Fix A.
