@@ -7,6 +7,11 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import checker from "vite-plugin-checker";
 
+// In Docker / CI builds, skip vite-plugin-checker. Its TS + ESLint worker threads
+// keep the Node process alive after `vite build` finishes, causing multi-minute
+// hangs in TTY-less environments. Local dev still gets full IDE-style checking.
+const isDockerBuild = process.env.DOCKER_BUILD === "1";
+
 // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
 // @cloudflare/vite-plugin builds from this — wrangler.jsonc main alone is insufficient.
 export default defineConfig({
@@ -14,16 +19,18 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [
-      checker({
-        typescript: true,
-        eslint: {
-          lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
-          useFlatConfig: true,
-        },
-        overlay: { initialIsOpen: false },
-        enableBuild: false,
-      }),
-    ],
+    plugins: isDockerBuild
+      ? []
+      : [
+          checker({
+            typescript: true,
+            eslint: {
+              lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
+              useFlatConfig: true,
+            },
+            overlay: { initialIsOpen: false },
+            enableBuild: false,
+          }),
+        ],
   },
 });
