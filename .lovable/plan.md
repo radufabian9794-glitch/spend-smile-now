@@ -1,114 +1,149 @@
-# Self-Hosted Docker Compose Stack
+# Deployment Guide — Self-hosted on Your Ubuntu Machine
 
-Goal: run the whole app locally (or on any Docker host) with one `docker compose up` — the TanStack Start app plus a self-hosted Supabase stack, with your existing migrations applied automatically.
+Target setup (from your answers): app + self-hosted Supabase running on your own Ubuntu laptop/desktop, no email delivery, using a domain you own. Everything runs on the local machine; the domain is wired in so you can use a clean URL like `https://app.yourdomain.com` instead of `http://localhost:3000`.
 
-## What gets added
+Because the machine is local-only, we'll point your domain at `127.0.0.1` via Cloudflare DNS or `/etc/hosts` (your choice) and terminate HTTPS with Caddy. No router/firewall changes needed.
 
-New files at the project root:
-
-```text
-Dockerfile                    # builds the TanStack Start app
-.dockerignore
-docker-compose.yml            # orchestrates app + Supabase services
-.env.docker.example           # template for required env vars
-docker/
-  supabase/
-    kong.yml                  # Kong gateway routes (Supabase API surface)
-    init-db/
-      00-roles.sql            # creates Supabase internal roles
-      01-extensions.sql       # pgcrypto, uuid-ossp, pgjwt, etc.
-    migrate.sh                # applies supabase/migrations/*.sql on boot
-README.docker.md              # how to run, reset, and connect
-```
-
-No source files in `src/` change. `wrangler.jsonc` stays as-is (Cloudflare deploy still works in parallel).
-
-## Services in `docker-compose.yml`
-
-| Service | Image | Purpose |
-|---|---|---|
-| `db` | `supabase/postgres:15.6.1.139` | Postgres with Supabase extensions |
-| `db-migrate` | `postgres:15-alpine` | One-shot: applies `supabase/migrations/*.sql` against `db`, then exits |
-| `auth` | `supabase/gotrue:v2.158.1` | Email/password + OAuth |
-| `rest` | `postgrest/postgrest:v12.2.0` | Auto REST API from schema |
-| `realtime` | `supabase/realtime:v2.30.34` | Postgres changes over WebSocket |
-| `storage` | `supabase/storage-api:v1.11.13` | File storage (backed by `db` + local volume) |
-| `meta` | `supabase/postgres-meta:v0.83.2` | Schema introspection |
-| `kong` | `kong:2.8.1` | Single API gateway on `:8000` (this is the `SUPABASE_URL` the app uses) |
-| `studio` | `supabase/studio:20240729-ce42139` | Web UI on `:3001` (optional, dev only) |
-| `app` | built from `Dockerfile` | The TanStack Start app on `:3000` |
-
-All services share a `supabase` Docker network. Volumes: `db-data`, `storage-data`.
-
-## App `Dockerfile` (multi-stage, Bun)
-
-```text
-# build stage
-FROM oven/bun:1 AS build
-WORKDIR /app
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
-COPY . .
-RUN bun run build
-
-# run stage — TanStack Start outputs a Node server bundle by default,
-# so we serve it with Bun for speed and small image size
-FROM oven/bun:1-slim AS run
-WORKDIR /app
-COPY --from=build /app/.output ./.output
-COPY --from=build /app/package.json ./
-ENV PORT=3000 HOST=0.0.0.0
-EXPOSE 3000
-CMD ["bun", "run", ".output/server/index.mjs"]
-```
-
-Note: the project currently builds for Cloudflare Workers via `@cloudflare/vite-plugin`. To produce a Node-compatible build for the container, the plan adds a second build target by setting `target: "node"` in a Docker-only build step (env-gated in `vite.config.ts`) — the Cloudflare build path is untouched. If you'd rather keep Vite config unchanged, alternative is to run the app with `wrangler dev` inside the container — let me know.
-
-## Migrations on boot
-
-`db-migrate` waits for `db` to be healthy, then runs:
+## Step 1 — Install Docker on Ubuntu
 
 ```bash
-for f in /migrations/*.sql; do psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f"; done
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+newgrp docker         # or log out and back in
+docker --version
+docker compose version
 ```
 
-Your existing files in `supabase/migrations/` (5 of them) are mounted read-only into the container, so the schema (categories, expenses, profiles, RLS, triggers, `has_role`, etc.) is recreated on a fresh volume.
+Verify: `docker run --rm hello-world` should print a success message.
 
-## Environment
+## Step 2 — Get the project onto the machine
 
-`.env.docker.example` documents everything; you copy to `.env.docker` and fill in. Key variables:
+Push the repo from Lovable to GitHub (the **GitHub** button in the top-right), then:
 
-- `POSTGRES_PASSWORD` — DB superuser password
-- `JWT_SECRET` — 32+ char random string; signs Supabase JWTs
-- `ANON_KEY`, `SERVICE_ROLE_KEY` — JWTs derived from `JWT_SECRET` (README explains how to generate with the official Supabase script or `openssl`)
-- `SITE_URL=http://localhost:3000` — used by GoTrue for redirects
-- `LOVABLE_API_KEY` — your existing AI gateway key (only if you keep using Lovable AI)
-- App-side: `VITE_SUPABASE_URL=http://localhost:8000`, `VITE_SUPABASE_PUBLISHABLE_KEY=$ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY`
+```bash
+cd ~
+git clone https://github.com/<your-user>/<your-repo>.git
+cd <your-repo>
+```
 
-Inside the Docker network the app talks to Supabase at `http://kong:8000`; from your browser it's `http://localhost:8000`. The README covers this gotcha.
-
-## How you'll use it
+## Step 3 — Create `.env.docker` with real secrets
 
 ```bash
 cp .env.docker.example .env.docker
-# edit .env.docker — at minimum set POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY
-docker compose --env-file .env.docker up -d
-# app:    http://localhost:3000
-# studio: http://localhost:3001
-# api:    http://localhost:8000
 ```
 
-`docker compose down -v` wipes data. `docker compose up db-migrate` re-applies migrations.
+Generate the three secrets:
 
-## Out of scope (call out before I build)
+```bash
+# JWT secret
+openssl rand -base64 40 | tr -d '\n='; echo
 
-- Lovable AI Gateway is a hosted service; if you self-host fully, you'll need to swap it for a direct provider (OpenAI / Google / etc.) — I'll leave a TODO in the README, not change app code.
-- Email: GoTrue ships with no SMTP by default, so signup confirmations won't actually deliver. README will document plugging in your SMTP creds (or disabling confirmations for local dev).
-- Production hardening (TLS, secrets manager, backups, non-root users, resource limits) — included as a checklist in the README, not configured.
-- Google OAuth: works the same as on Lovable Cloud once you set `GOTRUE_EXTERNAL_GOOGLE_*` env vars; documented in README.
+# install the JWT helper once (Node ships via Docker so we don't need it system-wide)
+docker run --rm -v "$PWD":/w -w /w node:20-alpine sh -c \
+  'npm i --silent jsonwebtoken && node -e "
+    const jwt = require(\"jsonwebtoken\");
+    const s = process.env.JWT_SECRET;
+    const exp = Math.floor(Date.now()/1000) + 60*60*24*365*10;
+    console.log(\"ANON_KEY=\" + jwt.sign({role:\"anon\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
+    console.log(\"SERVICE_ROLE_KEY=\" + jwt.sign({role:\"service_role\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
+  "' JWT_SECRET=<paste-the-jwt-secret-here>
+```
 
-## Open questions
+Open `.env.docker` in a text editor and paste in:
 
-1. **Vite Node build target** — OK to env-gate a Node build in `vite.config.ts` for Docker (keeps Cloudflare path intact)? Or prefer running `wrangler dev` inside the container?
-2. **Studio included?** — handy for dev, ~200 MB image. Include behind a `--profile dev` flag so prod runs lean?
-3. **Realtime + Storage** — your app doesn't currently use either. Include them now (matches "full Supabase") or skip to keep the stack smaller?
+- `POSTGRES_PASSWORD` — any strong password
+- `JWT_SECRET` — the secret from `openssl`
+- `ANON_KEY`, `SERVICE_ROLE_KEY` — the two JWTs from the node command
+- `SITE_URL=https://app.yourdomain.com` (replace with your subdomain)
+- `VITE_SUPABASE_URL=https://api.yourdomain.com` (used by your browser)
+- `SUPABASE_URL=http://kong:8000` (used by the app container internally — leave as-is)
+
+I recommend using two subdomains: `app.yourdomain.com` for the app and `api.yourdomain.com` for the Supabase gateway. Keeps cookies and CORS clean.
+
+## Step 4 — Point your domain at this machine
+
+Pick **one** option:
+
+**Option A — `/etc/hosts` (just this machine, no DNS setup):**
+```bash
+sudo tee -a /etc/hosts <<EOF
+127.0.0.1  app.yourdomain.com
+127.0.0.1  api.yourdomain.com
+EOF
+```
+HTTPS will work with a locally-trusted cert that Caddy auto-installs.
+
+**Option B — Real DNS (so other devices on your LAN can also reach it):**
+At your DNS provider, create two `A` records pointing to your LAN IP (e.g. `192.168.1.50`). Run `ip a` to find it. Note: Let's Encrypt won't issue certs for a LAN-only IP, so Caddy will fall back to local certs and your browser will warn the first time — accept it.
+
+## Step 5 — Add Caddy to the stack (TLS + nice URLs)
+
+I'll add two files for you in the next phase:
+
+```
+Caddyfile                       # routes app.* → app:3000, api.* → kong:8000
+docker-compose.override.yml     # adds the caddy service + maps :80/:443
+```
+
+`Caddyfile`:
+```
+app.yourdomain.com {
+  reverse_proxy app:3000
+}
+api.yourdomain.com {
+  reverse_proxy kong:8000
+}
+```
+
+The override file plugs Caddy into the existing `supabase` network and removes the public `:3000`/`:8000` port mappings so traffic only flows through Caddy.
+
+## Step 6 — Bring it up
+
+```bash
+docker compose --env-file .env.docker up -d --build
+docker compose --env-file .env.docker ps         # all should be "running"/"healthy"
+docker compose --env-file .env.docker logs -f app
+```
+
+First boot takes a few minutes (Postgres init + migrations + image pulls). Then visit:
+
+- `https://app.yourdomain.com` — the app
+- `https://api.yourdomain.com` — Supabase API (just a health page)
+
+Sign up an account via the `/auth` page. Because email is auto-confirmed, you can log in immediately.
+
+## Step 7 — Day-2 operations
+
+| Task | Command |
+|---|---|
+| Update after `git pull` | `docker compose --env-file .env.docker up -d --build` |
+| View logs | `docker compose --env-file .env.docker logs -f app` |
+| Open a DB shell | `docker compose exec db psql -U postgres` |
+| Re-run migrations | `docker compose --env-file .env.docker run --rm db-migrate` |
+| Backup DB | `docker compose exec db pg_dump -U postgres postgres > backup.sql` |
+| Wipe everything | `docker compose --env-file .env.docker down -v` |
+| Add Studio UI | `docker compose --env-file .env.docker --profile dev up -d` then visit `:3001` |
+
+## What I'll change in your repo
+
+- Add `Caddyfile` (HTTPS reverse proxy config)
+- Add `docker-compose.override.yml` (Caddy service, removes public app/kong ports)
+- Update `README.docker.md` with a pointer to this deployment flow
+
+No source code in `src/` changes.
+
+## What I still need from you before building
+
+1. **Your domain** (e.g. `example.com`) so I can pre-fill the Caddyfile and `.env.docker.example` with `app.example.com` / `api.example.com`. If you'd rather keep placeholders, just say "use placeholders".
+2. Confirm **Option A (`/etc/hosts`) vs Option B (real DNS to LAN IP)** — affects which note I leave in the README about cert warnings.
+
+Once you reply, I'll add the Caddy files and update the README. Then you follow Steps 1–6 above.
+
+## Things you should know (limitations)
+
+- **Laptop sleep = app down.** If you close the lid, the stack stops. For always-on, run it on a desktop you leave powered, or a small home server.
+- **Not reachable from the internet.** This setup is LAN/local-only. To expose publicly later, you'd open ports 80/443 on your router and switch DNS to your public IP (or front it with Cloudflare Tunnel — happy to add that in a follow-up).
+- **No backups are scheduled.** The `pg_dump` command above is manual. I can add a nightly backup cron container if you want.
+- **AI features still call Lovable's hosted gateway** via `LOVABLE_API_KEY`. To remove that dependency, the app code would need to point at OpenAI/Google directly — separate task.
