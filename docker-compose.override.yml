@@ -1,0 +1,27 @@
+# Adds Caddy as a TLS-terminating reverse proxy in front of the app + Supabase.
+# Removes the public :3000 and :8000 ports so traffic only flows through Caddy
+# on :80 / :443.
+
+services:
+  app:
+    ports: !reset []
+
+  kong:
+    ports: !reset []
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app, kong]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [supabase]
+
+volumes:
+  caddy-data:
+  caddy-config:

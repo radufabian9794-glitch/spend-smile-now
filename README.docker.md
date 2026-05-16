@@ -101,3 +101,35 @@ If you put the app behind a real domain, set both to that public URL.
   - Schedule `pg_dump` backups of the `db-data` volume.
   - Run containers as non-root and add resource limits.
   - Pin image digests rather than tags.
+
+## Deploying on your own Ubuntu machine
+
+Step-by-step guide tailored for a local Ubuntu host with a custom domain
+lives in [`.lovable/plan.md`](.lovable/plan.md). High-level flow:
+
+1. Install Docker on Ubuntu (`curl -fsSL https://get.docker.com | sudo sh`).
+2. `git clone` this repo.
+3. `cp .env.docker.example .env.docker` and fill in the secrets (see the
+   "Generating JWT_SECRET..." section above).
+4. Edit `Caddyfile` — replace `yourdomain.com` with your real domain.
+5. Point your domain at the machine. Pick one:
+   - **`/etc/hosts` (this machine only):**
+     ```
+     127.0.0.1  app.yourdomain.com api.yourdomain.com
+     ```
+   - **DNS A-records to your LAN IP** (so other devices on your network can reach it).
+6. Set in `.env.docker`:
+   ```
+   SITE_URL=https://app.yourdomain.com
+   VITE_SUPABASE_URL=https://api.yourdomain.com
+   ```
+   Leave `SUPABASE_URL=http://kong:8000` as-is (that's the app→Supabase
+   path inside the Docker network).
+7. `docker compose --env-file .env.docker up -d --build`
+
+Caddy auto-issues a TLS cert. For LAN-only setups Let's Encrypt can't
+validate the domain, so Caddy falls back to a locally-trusted internal
+cert — your browser will warn on first visit; accept it once.
+
+If you don't want a reverse proxy yet, delete `docker-compose.override.yml`
+and the stack reverts to plain `http://localhost:3000` + `http://localhost:8000`.

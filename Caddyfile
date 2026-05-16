@@ -1,0 +1,11 @@
+# Replace `yourdomain.com` with your real domain (or `localhost` for a quick
+# local test). Caddy auto-provisions TLS via Let's Encrypt for public domains,
+# and falls back to a locally-trusted cert for `.localhost` / private IPs.
+
+app.yourdomain.com {
+	reverse_proxy app:3000
+}
+
+api.yourdomain.com {
+	reverse_proxy kong:8000
+}
