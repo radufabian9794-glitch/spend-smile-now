@@ -2,6 +2,10 @@
 FROM oven/bun:1 AS build
 WORKDIR /app
 
+# DOCKER_BUILD=1 disables vite-plugin-checker (its worker threads hang the
+# process after `vite build` finishes). CI=1 nudges other tools to non-interactive.
+ENV DOCKER_BUILD=1 CI=1
+
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
@@ -17,7 +21,7 @@ WORKDIR /app
 
 COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.output ./.output
+COPY --from=build /app/dist ./dist
 COPY --from=build /app/wrangler.jsonc ./wrangler.jsonc
 COPY --from=build /app/src/server.ts ./src/server.ts
 

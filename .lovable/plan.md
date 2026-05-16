@@ -1,161 +1,88 @@
-# Deployment Guide — Self-hosted on Your Ubuntu Machine
+## Problem
 
-Target setup (from your answers): app + self-hosted Supabase running on your own Ubuntu laptop/desktop, no email delivery, using a domain you own. Everything runs on the local machine; the domain is wired in so you can use a clean URL like `https://app.yourdomain.com` instead of `http://localhost:3000`.
+Your Docker build hangs for ~19 minutes on `RUN bun run build`. The log shows Vite finishing successfully:
 
-Because the machine is local-only, we'll point your domain at `127.0.0.1` via Cloudflare DNS or `/etc/hosts` (your choice) and terminate HTTPS with Caddy. No router/firewall changes needed.
+```
+dist/server/assets/wallet-C-J_DYA0.js  908.07 kB
+✓ built in 5.22s
+```
 
-## Step 1 — Install Docker on Ubuntu
+…and then the process refuses to exit. The bundle is already on disk — something is keeping Node alive after Vite is done.
+
+## Root cause
+
+The prime suspect is **`vite-plugin-checker`** in `vite.config.ts`. It spawns long-lived TypeScript + ESLint worker threads. The `enableBuild: false` flag tells it to skip the *checks* during `vite build`, but the plugin and its workers are still attached to the Vite process. In a TTY-less Docker build with limited cores, those workers sometimes never receive a clean shutdown signal and the build process hangs until Docker's default timeout.
+
+The Dockerfile also has a second latent bug: it copies `/app/.output` from the build stage, but `vite build` outputs to `dist/` (visible in your log: `dist/server/assets/...`). Once the hang is fixed, the run stage will fail because `.output` doesn't exist. We should fix both in one pass.
+
+## Fix
+
+Three changes, all in infrastructure files — **no `src/` changes**:
+
+**1. Gate `vite-plugin-checker` so it doesn't load during Docker builds.**
+
+Edit `vite.config.ts` to only include the plugin when not in a CI/Docker build:
+
+```ts
+const isDockerBuild = process.env.DOCKER_BUILD === "1";
+
+export default defineConfig({
+  tanstackStart: { server: { entry: "server" } },
+  vite: {
+    plugins: isDockerBuild ? [] : [
+      checker({ /* existing config */ }),
+    ],
+  },
+});
+```
+
+**2. Set `DOCKER_BUILD=1` in the Dockerfile build stage.**
+
+```dockerfile
+FROM oven/bun:1 AS build
+WORKDIR /app
+ENV DOCKER_BUILD=1 CI=1
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
+COPY . .
+RUN bun run build
+```
+
+`CI=1` also helps other tools (including any leftover componentTagger watchers) pick a non-interactive code path.
+
+**3. Fix the run stage to copy the correct output directory.**
+
+The current Dockerfile copies `/app/.output`, which `vite build` does not produce. Replace it with `/app/dist`:
+
+```dockerfile
+FROM oven/bun:1 AS run
+WORKDIR /app
+
+COPY --from=build /app/package.json /app/bun.lock ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/wrangler.jsonc ./wrangler.jsonc
+COPY --from=build /app/src/server.ts ./src/server.ts
+
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["bunx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "3000", "--no-show-interactive-dev-session"]
+```
+
+## Update to `.lovable/plan.md`
+
+Append a new troubleshooting subsection — **"Build hangs after `✓ built in …`"** — under the existing Troubleshooting section. It will document the symptom, the cause (vite-plugin-checker workers + missing `dist` copy), and the three-line fix above. The original Deployment Guide stays untouched.
+
+## Verification
+
+After the changes:
 
 ```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER
-newgrp docker         # or log out and back in
-docker --version
-docker compose version
+docker compose --env-file .env.docker build --no-cache app
 ```
 
-Verify: `docker run --rm hello-world` should print a success message.
+Expected: `bun run build` finishes in well under a minute, the build stage exits, and the run stage proceeds to copy `dist/` and start wrangler.
 
-## Step 2 — Get the project onto the machine
+## Fallback if the hang persists
 
-Push the repo from Lovable to GitHub (the **GitHub** button in the top-right), then:
-
-```bash
-cd ~
-git clone https://github.com/<your-user>/<your-repo>.git
-cd <your-repo>
-```
-
-## Step 3 — Create `.env.docker` with real secrets
-
-```bash
-cp .env.docker.example .env.docker
-```
-
-Generate the three secrets:
-
-```bash
-# JWT secret
-openssl rand -base64 40 | tr -d '\n='; echo
-
-# install the JWT helper once (Node ships via Docker so we don't need it system-wide)
-# IMPORTANT: pass JWT_SECRET with `-e` BEFORE the image name so Docker injects it
-# as an env var inside the container. Appending `JWT_SECRET=...` after the closing
-# quote makes it a positional shell argument and the secret will be empty,
-# causing `jwt.sign` to fail with "secretOrPrivateKey must have a value".
-docker run --rm \
-  -e JWT_SECRET='<paste-the-jwt-secret-here>' \
-  -v "$PWD":/w -w /w node:20-alpine sh -c \
-  'npm i --silent jsonwebtoken && node -e "
-    const jwt = require(\"jsonwebtoken\");
-    const s = process.env.JWT_SECRET;
-    const exp = Math.floor(Date.now()/1000) + 60*60*24*365*10;
-    console.log(\"ANON_KEY=\" + jwt.sign({role:\"anon\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
-    console.log(\"SERVICE_ROLE_KEY=\" + jwt.sign({role:\"service_role\",iss:\"supabase\",iat:Math.floor(Date.now()/1000),exp}, s));
-  "'
-```
-
-Open `.env.docker` in a text editor and paste in:
-
-- `POSTGRES_PASSWORD` — any strong password
-- `JWT_SECRET` — the secret from `openssl`
-- `ANON_KEY`, `SERVICE_ROLE_KEY` — the two JWTs from the node command
-- `SITE_URL=https://app.yourdomain.com` (replace with your subdomain)
-- `VITE_SUPABASE_URL=https://api.yourdomain.com` (used by your browser)
-- `SUPABASE_URL=http://kong:8000` (used by the app container internally — leave as-is)
-
-I recommend using two subdomains: `app.yourdomain.com` for the app and `api.yourdomain.com` for the Supabase gateway. Keeps cookies and CORS clean.
-
-## Step 4 — Point your domain at this machine
-
-Pick **one** option:
-
-**Option A — `/etc/hosts` (just this machine, no DNS setup):**
-```bash
-sudo tee -a /etc/hosts <<EOF
-127.0.0.1  app.yourdomain.com
-127.0.0.1  api.yourdomain.com
-EOF
-```
-HTTPS will work with a locally-trusted cert that Caddy auto-installs.
-
-**Option B — Real DNS (so other devices on your LAN can also reach it):**
-At your DNS provider, create two `A` records pointing to your LAN IP (e.g. `192.168.1.50`). Run `ip a` to find it. Note: Let's Encrypt won't issue certs for a LAN-only IP, so Caddy will fall back to local certs and your browser will warn the first time — accept it.
-
-## Step 5 — Add Caddy to the stack (TLS + nice URLs)
-
-Both files already live at the **root of the repo** (same folder as `docker-compose.yml`) — they ship with the project, you don't need to create them. Verify:
-
-```bash
-ls Caddyfile docker-compose.override.yml
-```
-
-```
-Caddyfile                       # routes app.* → app:3000, api.* → kong:8000
-docker-compose.override.yml     # adds the caddy service + maps :80/:443
-```
-
-The only edit you need to make is in `Caddyfile`: replace the placeholder `app.yourdomain.com` / `api.yourdomain.com` with your real subdomains.
-
-`Caddyfile`:
-```
-app.yourdomain.com {
-  reverse_proxy app:3000
-}
-api.yourdomain.com {
-  reverse_proxy kong:8000
-}
-```
-
-The override file plugs Caddy into the existing `supabase` network and removes the public `:3000`/`:8000` port mappings so traffic only flows through Caddy.
-
-## Step 6 — Bring it up
-
-```bash
-docker compose --env-file .env.docker up -d --build
-docker compose --env-file .env.docker ps         # all should be "running"/"healthy"
-docker compose --env-file .env.docker logs -f app
-```
-
-First boot takes a few minutes (Postgres init + migrations + image pulls). Then visit:
-
-- `https://app.yourdomain.com` — the app
-- `https://api.yourdomain.com` — Supabase API (just a health page)
-
-Sign up an account via the `/auth` page. Because email is auto-confirmed, you can log in immediately.
-
-## Step 7 — Day-2 operations
-
-| Task | Command |
-|---|---|
-| Update after `git pull` | `docker compose --env-file .env.docker up -d --build` |
-| View logs | `docker compose --env-file .env.docker logs -f app` |
-| Open a DB shell | `docker compose exec db psql -U postgres` |
-| Re-run migrations | `docker compose --env-file .env.docker run --rm db-migrate` |
-| Backup DB | `docker compose exec db pg_dump -U postgres postgres > backup.sql` |
-| Wipe everything | `docker compose --env-file .env.docker down -v` |
-| Add Studio UI | `docker compose --env-file .env.docker --profile dev up -d` then visit `:3001` |
-
-## What I'll change in your repo
-
-- Add `Caddyfile` (HTTPS reverse proxy config)
-- Add `docker-compose.override.yml` (Caddy service, removes public app/kong ports)
-- Update `README.docker.md` with a pointer to this deployment flow
-
-No source code in `src/` changes.
-
-## What I still need from you before building
-
-1. **Your domain** (e.g. `example.com`) so I can pre-fill the Caddyfile and `.env.docker.example` with `app.example.com` / `api.example.com`. If you'd rather keep placeholders, just say "use placeholders".
-2. Confirm **Option A (`/etc/hosts`) vs Option B (real DNS to LAN IP)** — affects which note I leave in the README about cert warnings.
-
-Once you reply, I'll add the Caddy files and update the README. Then you follow Steps 1–6 above.
-
-## Things you should know (limitations)
-
-- **Laptop sleep = app down.** If you close the lid, the stack stops. For always-on, run it on a desktop you leave powered, or a small home server.
-- **Not reachable from the internet.** This setup is LAN/local-only. To expose publicly later, you'd open ports 80/443 on your router and switch DNS to your public IP (or front it with Cloudflare Tunnel — happy to add that in a follow-up).
-- **No backups are scheduled.** The `pg_dump` command above is manual. I can add a nightly backup cron container if you want.
-- **AI features still call Lovable's hosted gateway** via `LOVABLE_API_KEY`. To remove that dependency, the app code would need to point at OpenAI/Google directly — separate task.
+If checker isn't the culprit, the next thing to gate is `@cloudflare/vite-plugin`'s post-build worker validation. We can add a `--logLevel debug` flag to `vite build` in the Dockerfile to confirm exactly which plugin is the last one running, then either disable that plugin in Docker mode or switch to `bunx wrangler deploy --dry-run` as the actual build command. I'll only do this if step 1 doesn't resolve it.
