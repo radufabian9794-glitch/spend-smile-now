@@ -86,12 +86,18 @@ At your DNS provider, create two `A` records pointing to your LAN IP (e.g. `192.
 
 ## Step 5 — Add Caddy to the stack (TLS + nice URLs)
 
-I'll add two files for you in the next phase:
+Both files already live at the **root of the repo** (same folder as `docker-compose.yml`) — they ship with the project, you don't need to create them. Verify:
+
+```bash
+ls Caddyfile docker-compose.override.yml
+```
 
 ```
 Caddyfile                       # routes app.* → app:3000, api.* → kong:8000
 docker-compose.override.yml     # adds the caddy service + maps :80/:443
 ```
+
+The only edit you need to make is in `Caddyfile`: replace the placeholder `app.yourdomain.com` / `api.yourdomain.com` with your real subdomains.
 
 `Caddyfile`:
 ```
