@@ -30,12 +30,14 @@ After a minute or so:
 `JWT_SECRET` must match across the DB, GoTrue, PostgREST, Realtime, and
 Storage. The two API keys are JWTs signed with that secret.
 
+### Option A — with Node installed on the host
+
 ```bash
 # 1. random 40-char secret
-openssl rand -base64 40 | tr -d '\n='
+openssl rand -base64 40 | tr -d '\n='; echo
 
-# 2. derive the two JWTs (paste the secret into JWT_SECRET below first)
-JWT_SECRET=...your-secret...
+# 2. derive the two JWTs (export the secret first so node can read it)
+export JWT_SECRET='...paste-the-secret...'
 node -e '
   const jwt = require("jsonwebtoken");
   const s = process.env.JWT_SECRET;
@@ -45,8 +47,33 @@ node -e '
 '
 ```
 
-(`npm i -g jsonwebtoken` first if needed, or use the official Supabase
-self-hosting key generator: https://supabase.com/docs/guides/self-hosting)
+(`npm i -g jsonwebtoken` first if needed.)
+
+### Option B — Docker only (no Node on the host)
+
+```bash
+# 1. random 40-char secret
+openssl rand -base64 40 | tr -d '\n='; echo
+
+# 2. run the signer inside a throwaway node container.
+#    IMPORTANT: pass the secret with `-e JWT_SECRET=...` BEFORE the image name
+#    so Docker injects it as an env var. Do NOT append `JWT_SECRET=...` after
+#    the closing quote — that becomes a positional shell argument and the
+#    secret will be empty (`secretOrPrivateKey must have a value`).
+docker run --rm \
+  -e JWT_SECRET='...paste-the-secret...' \
+  node:20-alpine sh -c \
+  'npm i --silent jsonwebtoken && node -e "
+    const jwt = require(\"jsonwebtoken\");
+    const s  = process.env.JWT_SECRET;
+    const exp = Math.floor(Date.now()/1000) + 60*60*24*365*10;
+    console.log(\"ANON_KEY=\"         + jwt.sign({role:\"anon\",        iss:\"supabase\", iat:Math.floor(Date.now()/1000), exp}, s));
+    console.log(\"SERVICE_ROLE_KEY=\" + jwt.sign({role:\"service_role\",iss:\"supabase\", iat:Math.floor(Date.now()/1000), exp}, s));
+  "'
+```
+
+Or use the official Supabase self-hosting key generator:
+https://supabase.com/docs/guides/self-hosting
 
 Paste all three into `.env.docker`.
 
