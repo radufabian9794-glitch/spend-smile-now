@@ -30,16 +30,17 @@ WORKDIR /app
 COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY --from=build /app/.wrangler ./.wrangler
 COPY --from=build /app/wrangler.jsonc ./wrangler.jsonc
-COPY --from=build /app/vite.config.ts ./vite.config.ts
-COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/src ./src
+COPY --from=build /app/tsconfig.json ./tsconfig.json
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# `vite preview` serves the built worker through the Cloudflare Vite plugin's
-# workerd runtime — the supported preview path for this stack. We bind to all
-# interfaces so the container is reachable from outside.
-CMD ["bunx", "vite", "preview", "--host", "0.0.0.0", "--port", "3000"]
+# Serve the built Worker via wrangler/miniflare (workerd runtime).
+# `@cloudflare/vite-plugin` writes a redirected wrangler config under
+# `.wrangler/deploy/config.json` pointing at the built bundle in `dist/`,
+# so `wrangler dev` from the project root picks it up automatically.
+CMD ["bunx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "3000"]
 
