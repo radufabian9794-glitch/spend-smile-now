@@ -22,6 +22,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     ELSE
       ALTER ROLE supabase_auth_admin WITH LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
     END IF;
+    -- GoTrue's pop migrator creates schema_migrations unqualified, so pin
+    -- the role's search_path to the auth schema it owns.
+    ALTER ROLE supabase_auth_admin SET search_path = auth;
 
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
       CREATE ROLE supabase_storage_admin LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
