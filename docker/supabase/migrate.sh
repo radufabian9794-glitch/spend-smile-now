@@ -59,11 +59,9 @@ for f in /migrations/*.sql; do
     continue
   fi
   echo "[migrate] -> $name"
-  psql "$DB_URL" -v ON_ERROR_STOP=1 -1 \
-    -c "BEGIN;" \
-    -f "$f" \
-    -c "INSERT INTO public.schema_migrations (filename) VALUES ('$name');" \
-    -c "COMMIT;"
+  psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f"
+  psql "$DB_URL" -v ON_ERROR_STOP=1 \
+    -c "INSERT INTO public.schema_migrations (filename) VALUES ('$name');"
 done
 
 echo "[migrate] done."
