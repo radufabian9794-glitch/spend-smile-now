@@ -58,7 +58,14 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 
+  -- Storage service runs its own migrations on boot inside the postgres DB,
+  -- which requires database-level CREATE/CONNECT (otherwise it dies with
+  -- "permission denied for database postgres").
+  GRANT ALL ON DATABASE ${POSTGRES_DB:-postgres} TO supabase_storage_admin;
+  GRANT ALL ON DATABASE ${POSTGRES_DB:-postgres} TO supabase_auth_admin;
+
   -- GoTrue's pop migrator creates schema_migrations unqualified; pin the
   -- auth admin's search_path so it lands in the auth schema it owns.
   ALTER ROLE supabase_auth_admin SET search_path = auth;
 EOSQL
+

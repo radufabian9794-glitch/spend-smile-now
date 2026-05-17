@@ -147,6 +147,8 @@ services:
       ERL_AFLAGS: -proto_dist inet_tcp
       ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
+      # realtime's run.sh references RLIMIT_NOFILE with `set -u`; provide a default.
+      RLIMIT_NOFILE: "10000"
     networks: [supabase]
 
   # -----------------------------------------------------------------------
