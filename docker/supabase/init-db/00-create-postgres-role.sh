@@ -1,0 +1,39 @@
+#!/bin/bash
+# The supabase/postgres image initializes the cluster with `supabase_admin` as
+# the superuser and does NOT create a `postgres` role from POSTGRES_PASSWORD.
+# Our compose services (db-migrate, realtime, meta, healthcheck) all connect
+# as `postgres`, so we create it here as a superuser with the env password.
+# We also pre-create the auth/storage admin roles GoTrue and Storage expect.
+set -e
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  DO \$\$
+  BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'postgres') THEN
+      CREATE ROLE postgres LOGIN SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS
+        PASSWORD '${POSTGRES_PASSWORD}';
+    ELSE
+      ALTER ROLE postgres WITH LOGIN SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS
+        PASSWORD '${POSTGRES_PASSWORD}';
+    END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
+      CREATE ROLE supabase_auth_admin LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
+    ELSE
+      ALTER ROLE supabase_auth_admin WITH LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
+    END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'supabase_storage_admin') THEN
+      CREATE ROLE supabase_storage_admin LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
+    ELSE
+      ALTER ROLE supabase_storage_admin WITH LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
+    END IF;
+  END
+  \$\$;
+
+  -- Make sure the auth / storage admin roles own and can manage their schemas.
+  CREATE SCHEMA IF NOT EXISTS auth    AUTHORIZATION supabase_auth_admin;
+  CREATE SCHEMA IF NOT EXISTS storage AUTHORIZATION supabase_storage_admin;
+  GRANT ALL ON SCHEMA auth    TO supabase_auth_admin;
+  GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+EOSQL
