@@ -1,18 +1,27 @@
-The new logs show GoTrue is still creating `schema_migrations` unqualified, so `GOTRUE_DB_NAMESPACE=auth` only affects the migration SQL templates, not the migration bookkeeping table. The practical fix is to set the DB user's default search path to `auth` before GoTrue starts.
+Move Caddy off the conflicting host ports so it can coexist with Apache on :80/:443.
 
-Plan:
-1. Update `docker/supabase/init-db/00-create-postgres-role.sh` so `supabase_auth_admin` has `search_path = auth`.
-2. Keep `GOTRUE_DB_NAMESPACE: auth` in `docker-compose.yml` for GoTrue's auth table SQL templates.
-3. Ask you to recreate the DB volume again, because init scripts only run on a fresh Postgres data directory.
+## Change
 
-Technical details:
-- Add/ensure:
-```sql
-ALTER ROLE supabase_auth_admin SET search_path = auth;
+Edit `docker-compose.override.yml`: remap Caddy's host ports from `80:80` and `443:443` to `8080:80` and `8443:443`. Container-internal ports stay the same, so the `Caddyfile` and all upstream service config remain unchanged.
+
+```yaml
+caddy:
+  ports:
+    - "8080:80"
+    - "8443:443"
 ```
-- This makes GoTrue's unqualified migration table creation resolve to `auth.schema_migrations`, where the role already has ownership/CREATE privileges.
-- Then run:
+
+## After applying
+
 ```bash
-docker compose --env-file .env.docker down -v
 docker compose --env-file .env.docker up -d
+docker compose --env-file .env.docker ps
 ```
+
+Access URLs become:
+- http://app.yourdomain.com:8080 (or https://...:8443)
+- http://api.yourdomain.com:8080
+
+## Note on Let's Encrypt
+
+Caddy's automatic HTTPS via Let's Encrypt requires ports 80 and 443 on the public interface — it won't work on 8080/8443. For a LAN/local setup with self-signed certs this is fine. If you later want real certs, you'll need to free :80/:443 (stop Apache) or use Caddy's DNS-01 challenge.
