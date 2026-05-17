@@ -2,6 +2,14 @@
 FROM oven/bun:1 AS build
 WORKDIR /app
 
+# VITE_* values are inlined into the JS bundle at build time. They must be
+# the URLs the BROWSER will use (e.g. http://192.168.1.140:8000), not the
+# in-network http://kong:8000 address. Changing them requires a rebuild.
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+
 # DOCKER_BUILD=1 disables vite-plugin-checker (its worker threads hang the
 # process after `vite build` finishes). CI=1 nudges other tools to non-interactive.
 ENV DOCKER_BUILD=1 CI=1
