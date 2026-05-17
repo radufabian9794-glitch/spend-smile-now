@@ -38,6 +38,25 @@ services:
     networks: [supabase]
 
   # -----------------------------------------------------------------------
+  # One-shot: run GoTrue's own migrations so auth.users exists before our
+  # app migrations (which FK-reference auth.users) run.
+  # -----------------------------------------------------------------------
+  auth-migrate:
+    image: supabase/gotrue:v2.158.1
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
+      GOTRUE_SITE_URL: ${SITE_URL}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      API_EXTERNAL_URL: ${SITE_URL}
+    entrypoint: ["gotrue", "migrate"]
+    restart: "no"
+    networks: [supabase]
+
+  # -----------------------------------------------------------------------
   # One-shot: apply supabase/migrations/*.sql on top of the fresh DB.
   # -----------------------------------------------------------------------
   db-migrate:
@@ -45,8 +64,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      auth:
-        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
     environment:
       DB_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}
     volumes:
@@ -63,13 +82,8 @@ services:
     image: supabase/gotrue:v2.158.1
     restart: unless-stopped
     depends_on:
-      db:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9999/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 30
+      db-migrate:
+        condition: service_completed_successfully
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999

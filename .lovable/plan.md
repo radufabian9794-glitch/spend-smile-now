@@ -1,26 +1,34 @@
-Real progress: the `postgres` role fix worked. New failure is a chicken-and-egg between GoTrue and our migrations.
+## Plan
 
-**Root cause**
-The first app migration has `REFERENCES auth.users(id)`. The `auth.users` table is created by GoTrue (the `auth` service) on its first start — not by Postgres. Today `auth` `depends_on: db-migrate`, and `db-migrate` references `auth.users`, so migrations always run before the table exists.
+Fix the Docker self-hosted startup loop where `auth` becomes unhealthy before migrations can run.
 
-**Fix: invert the dependency**
-Let GoTrue bootstrap the `auth` schema first, then run our migrations.
+### What I’ll change
 
-1. In `docker-compose.yml`:
-   - Make `auth` depend only on `db` (`service_healthy`), not on `db-migrate`.
-   - Add a healthcheck to `auth` (HTTP GET `/health` on port 9999).
-   - Make `db-migrate` depend on `auth` being healthy instead of just `db`.
-   - Keep `rest`, `realtime`, `storage`, `meta` depending on `db-migrate` completion so the app schema exists before they start.
+1. **Stop relying on GoTrue to create `auth.users` before migrations**
+   - Add the required Supabase auth schema/table bootstrap to the Postgres init scripts so `auth.users` exists as soon as the DB is initialized.
+   - This removes the circular dependency between `auth` and `db-migrate`.
 
-2. Reset and verify on the laptop:
+2. **Restore a safer startup order**
+   - Make `db-migrate` depend only on the database being healthy.
+   - Make `auth` depend on `db-migrate` completing successfully.
+   - Keep the other Supabase services depending on successful migrations.
 
-```bash
-git pull
-docker compose --env-file .env.docker down -v --remove-orphans
-docker compose --env-file .env.docker up -d --build
-docker compose --env-file .env.docker logs db-migrate
+3. **Clean up duplicate role/schema initialization**
+   - Consolidate the overlapping role/schema setup currently split between `00-create-postgres-role.sh` and `00-roles.sql` so init is idempotent and less error-prone.
+
+### Technical details
+
+- The current failure likely happens because `auth` connects as `supabase_auth_admin`, but the pre-created `auth` schema and duplicate init SQL are not enough for GoTrue to finish its startup healthcheck reliably.
+- The previous fix inverted dependencies, but that made `auth` responsible for creating auth tables before migrations. A more stable self-hosted pattern is:
+
+```text
+db initializes roles + auth schema/tables
+        ↓
+db-migrate applies app migrations referencing auth.users
+        ↓
+auth/rest/realtime/storage/meta start
+        ↓
+kong/app start
 ```
 
-Expected: `auth` starts, creates `auth.users`, becomes healthy → `db-migrate` runs successfully → everything else starts.
-
-No app source code changes — Docker config only.
+- I’ll keep changes limited to Docker/database init files only.
