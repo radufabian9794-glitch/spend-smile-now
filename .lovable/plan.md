@@ -1,26 +1,11 @@
-## Problem
+The Realtime error is still caused by the existing database volume already containing `public.schema_migrations` in the wrong shape. The previous script only renames the table when `db-migrate` runs, but `docker compose up -d` did not recreate/rerun the completed one-shot `db-migrate` container, so the database was never repaired.
 
-Our `docker/supabase/migrate.sh` created `public.schema_migrations` to track applied app migrations. Realtime's Ecto migrator also targets `schema_migrations` and expects a `version` column. It finds our table, the column is missing, and it crash-loops.
+Plan:
+1. Update the Compose lifecycle so `db-migrate` reliably runs its repair step before Realtime starts on future `up` runs.
+2. Harden `docker/supabase/migrate.sh` so it also handles the case where both `public.schema_migrations` and `public.lovable_schema_migrations` already exist: copy any legacy filenames, drop the conflicting legacy table, then let Realtime create its own Ecto table.
+3. Add a one-time manual recovery command for your current server so you can repair the already-running volume immediately without deleting data.
 
-## Fix
-
-1. Rename our tracking table to a non-colliding name: `public.lovable_schema_migrations`.
-2. Update `docker/supabase/migrate.sh` to create, query, and insert into the new name (both first-run and backfill paths).
-3. Add a one-time rename in the script so existing volumes upgrade cleanly:
-   ```sql
-   ALTER TABLE IF EXISTS public.schema_migrations
-     RENAME TO lovable_schema_migrations;
-   ```
-   (only runs if the old table exists; safe no-op otherwise.)
-4. After deploy, restart realtime; it will create its own `_realtime.schema_migrations` and run migrations cleanly.
-
-## Verify
-
-```bash
-git pull
-docker compose --env-file .env.docker up -d
-docker compose --env-file .env.docker logs realtime --tail 60
-docker compose --env-file .env.docker ps
-```
-
-Realtime should stay `Up` and reach `Running RealtimeWeb.Endpoint`.
+Technical details:
+- Change `db-migrate` from a completed one-shot that Compose can skip into an idempotent restartable migration service, or add an explicit repair path that runs before Realtime.
+- The SQL repair will only affect `public.schema_migrations` when it has the Lovable tracker column `filename`; it will not touch a valid Ecto `schema_migrations(version)` table.
+- After deployment, run either `docker compose --env-file .env.docker up -d --force-recreate db-migrate realtime` or the provided `docker compose run --rm db-migrate` recovery command, then check `realtime` logs again.
