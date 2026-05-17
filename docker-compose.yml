@@ -147,6 +147,9 @@ services:
       ERL_AFLAGS: -proto_dist inet_tcp
       ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
+      APP_NAME: realtime
+      SEED_SELF_HOST: "true"
+      RUN_JANITOR: "true"
       # realtime's run.sh references RLIMIT_NOFILE with `set -u`; provide a default.
       RLIMIT_NOFILE: "10000"
     ulimits:
