@@ -48,6 +48,24 @@ CREATE TABLE IF NOT EXISTS public.schema_migrations (
 );
 SQL
 
+# Backfill: if app tables already exist but tracking is empty, assume every
+# *.sql in /migrations was applied in a previous run (before this tracker
+# existed) and mark them all as applied so we don't try to re-create them.
+already_has_app_tables="$(psql "$DB_URL" -At -c \
+  "SELECT to_regclass('public.expenses') IS NOT NULL")"
+tracker_empty="$(psql "$DB_URL" -At -c \
+  "SELECT NOT EXISTS (SELECT 1 FROM public.schema_migrations)")"
+if [ "$already_has_app_tables" = "t" ] && [ "$tracker_empty" = "t" ]; then
+  echo "[migrate] backfilling schema_migrations from existing files"
+  for f in /migrations/*.sql; do
+    [ -f "$f" ] || continue
+    name="$(basename "$f")"
+    psql "$DB_URL" -v ON_ERROR_STOP=1 -c \
+      "INSERT INTO public.schema_migrations (filename) VALUES ('$name') ON CONFLICT DO NOTHING;"
+  done
+fi
+
+
 echo "[migrate] applying migrations from /migrations"
 for f in /migrations/*.sql; do
   [ -f "$f" ] || continue
