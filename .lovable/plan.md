@@ -1,34 +1,11 @@
 ## Plan
 
-Fix the Docker self-hosted startup loop where `auth` becomes unhealthy before migrations can run.
+Fix the DB init failure: `01-extensions.sql` references the `extensions` schema, which was dropped when I removed `00-roles.sql`.
 
-### What I’ll change
+### Change
 
-1. **Stop relying on GoTrue to create `auth.users` before migrations**
-   - Add the required Supabase auth schema/table bootstrap to the Postgres init scripts so `auth.users` exists as soon as the DB is initialized.
-   - This removes the circular dependency between `auth` and `db-migrate`.
+Add `CREATE SCHEMA IF NOT EXISTS extensions;` (and `realtime` for parity) to `docker/supabase/init-db/00-create-postgres-role.sh`, alongside the existing `auth` and `storage` schema creation.
 
-2. **Restore a safer startup order**
-   - Make `db-migrate` depend only on the database being healthy.
-   - Make `auth` depend on `db-migrate` completing successfully.
-   - Keep the other Supabase services depending on successful migrations.
+Result: init script runs cleanly → `01-extensions.sql` succeeds → db becomes healthy → `auth-migrate` → `db-migrate` → everything else.
 
-3. **Clean up duplicate role/schema initialization**
-   - Consolidate the overlapping role/schema setup currently split between `00-create-postgres-role.sh` and `00-roles.sql` so init is idempotent and less error-prone.
-
-### Technical details
-
-- The current failure likely happens because `auth` connects as `supabase_auth_admin`, but the pre-created `auth` schema and duplicate init SQL are not enough for GoTrue to finish its startup healthcheck reliably.
-- The previous fix inverted dependencies, but that made `auth` responsible for creating auth tables before migrations. A more stable self-hosted pattern is:
-
-```text
-db initializes roles + auth schema/tables
-        ↓
-db-migrate applies app migrations referencing auth.users
-        ↓
-auth/rest/realtime/storage/meta start
-        ↓
-kong/app start
-```
-
-- I’ll keep changes limited to Docker/database init files only.
+Single-file change.

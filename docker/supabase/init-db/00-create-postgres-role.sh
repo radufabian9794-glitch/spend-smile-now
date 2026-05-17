@@ -46,10 +46,13 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   \$\$;
 
   -- Make sure the auth / storage admin roles own and can manage their schemas.
-  CREATE SCHEMA IF NOT EXISTS auth    AUTHORIZATION supabase_auth_admin;
-  CREATE SCHEMA IF NOT EXISTS storage AUTHORIZATION supabase_storage_admin;
+  CREATE SCHEMA IF NOT EXISTS auth       AUTHORIZATION supabase_auth_admin;
+  CREATE SCHEMA IF NOT EXISTS storage    AUTHORIZATION supabase_storage_admin;
+  CREATE SCHEMA IF NOT EXISTS extensions;
+  CREATE SCHEMA IF NOT EXISTS realtime;
   GRANT ALL ON SCHEMA auth    TO supabase_auth_admin;
   GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+  GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role, postgres;
   GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
