@@ -42,26 +42,30 @@ SQL
 
 echo "[migrate] ensuring lovable_schema_migrations tracking table..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
--- Rename legacy tracker if it exists and only has our columns (avoid clashing
--- with Realtime's Ecto-managed public.schema_migrations which uses `version`).
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
-  ) AND EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
-      AND column_name = 'filename'
-  ) THEN
-    EXECUTE 'ALTER TABLE public.schema_migrations RENAME TO lovable_schema_migrations';
-  END IF;
-END $$;
-
+-- Ensure our tracker exists first.
 CREATE TABLE IF NOT EXISTS public.lovable_schema_migrations (
   filename    TEXT PRIMARY KEY,
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Repair legacy state: if public.schema_migrations has our `filename` column
+-- (left over from an earlier Lovable migrate script), copy its rows into
+-- lovable_schema_migrations and drop it so Realtime's Ecto migrator can
+-- recreate its own schema_migrations(version) table cleanly.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+      AND column_name = 'filename'
+  ) THEN
+    INSERT INTO public.lovable_schema_migrations (filename, applied_at)
+    SELECT filename, COALESCE(applied_at, now())
+    FROM public.schema_migrations
+    ON CONFLICT (filename) DO NOTHING;
+    DROP TABLE public.schema_migrations;
+  END IF;
+END $$;
 SQL
 
 # Backfill: if app tables already exist but tracking is empty, assume every
