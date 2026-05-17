@@ -40,9 +40,25 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA storage
   GRANT ALL ON SEQUENCES TO supabase_storage_admin;
 SQL
 
-echo "[migrate] ensuring schema_migrations tracking table..."
+echo "[migrate] ensuring lovable_schema_migrations tracking table..."
 psql "$DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
-CREATE TABLE IF NOT EXISTS public.schema_migrations (
+-- Rename legacy tracker if it exists and only has our columns (avoid clashing
+-- with Realtime's Ecto-managed public.schema_migrations which uses `version`).
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+      AND column_name = 'filename'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.schema_migrations RENAME TO lovable_schema_migrations';
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.lovable_schema_migrations (
   filename    TEXT PRIMARY KEY,
   applied_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -54,14 +70,14 @@ SQL
 already_has_app_tables="$(psql "$DB_URL" -At -c \
   "SELECT to_regclass('public.expenses') IS NOT NULL")"
 tracker_empty="$(psql "$DB_URL" -At -c \
-  "SELECT NOT EXISTS (SELECT 1 FROM public.schema_migrations)")"
+  "SELECT NOT EXISTS (SELECT 1 FROM public.lovable_schema_migrations)")"
 if [ "$already_has_app_tables" = "t" ] && [ "$tracker_empty" = "t" ]; then
-  echo "[migrate] backfilling schema_migrations from existing files"
+  echo "[migrate] backfilling lovable_schema_migrations from existing files"
   for f in /migrations/*.sql; do
     [ -f "$f" ] || continue
     name="$(basename "$f")"
     psql "$DB_URL" -v ON_ERROR_STOP=1 -c \
-      "INSERT INTO public.schema_migrations (filename) VALUES ('$name') ON CONFLICT DO NOTHING;"
+      "INSERT INTO public.lovable_schema_migrations (filename) VALUES ('$name') ON CONFLICT DO NOTHING;"
   done
 fi
 
@@ -71,7 +87,7 @@ for f in /migrations/*.sql; do
   [ -f "$f" ] || continue
   name="$(basename "$f")"
   applied="$(psql "$DB_URL" -At -c \
-    "SELECT 1 FROM public.schema_migrations WHERE filename = '$name'")"
+    "SELECT 1 FROM public.lovable_schema_migrations WHERE filename = '$name'")"
   if [ "$applied" = "1" ]; then
     echo "[migrate] -- $name (already applied, skipping)"
     continue
@@ -79,7 +95,7 @@ for f in /migrations/*.sql; do
   echo "[migrate] -> $name"
   psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f"
   psql "$DB_URL" -v ON_ERROR_STOP=1 \
-    -c "INSERT INTO public.schema_migrations (filename) VALUES ('$name');"
+    -c "INSERT INTO public.lovable_schema_migrations (filename) VALUES ('$name');"
 done
 
 echo "[migrate] done."
