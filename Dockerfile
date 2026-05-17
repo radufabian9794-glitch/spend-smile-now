@@ -23,9 +23,15 @@ COPY --from=build /app/package.json /app/bun.lock ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/wrangler.jsonc ./wrangler.jsonc
-COPY --from=build /app/src/server.ts ./src/server.ts
+COPY --from=build /app/vite.config.ts ./vite.config.ts
+COPY --from=build /app/tsconfig.json ./tsconfig.json
+COPY --from=build /app/src ./src
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["bunx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "3000", "--no-show-interactive-dev-session"]
+# `vite preview` serves the built worker through the Cloudflare Vite plugin's
+# workerd runtime — the supported preview path for this stack. We bind to all
+# interfaces so the container is reachable from outside.
+CMD ["bunx", "vite", "preview", "--host", "0.0.0.0", "--port", "3000"]
+
