@@ -158,5 +158,7 @@ Caddy auto-issues a TLS cert. For LAN-only setups Let's Encrypt can't
 validate the domain, so Caddy falls back to a locally-trusted internal
 cert — your browser will warn on first visit; accept it once.
 
-If you don't want a reverse proxy yet, delete `docker-compose.override.yml`
-and the stack reverts to plain `http://localhost:3000` + `http://localhost:8000`.
+By default both access paths work: direct `http://localhost:3000` /
+`http://localhost:8000`, and the Caddy proxy on `:8080` / `:8443`. To make
+traffic flow only through Caddy, add `ports: !reset []` under `app` and
+`kong` in `docker-compose.override.yml`.

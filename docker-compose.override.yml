@@ -1,14 +1,10 @@
-# Adds Caddy as a TLS-terminating reverse proxy in front of the app + Supabase.
-# Removes the public :3000 and :8000 ports so traffic only flows through Caddy
-# on :80 / :443.
+# Adds Caddy as a TLS-terminating reverse proxy in front of the app + Supabase
+# on :8080 / :8443. The direct :3000 (app) and :8000 (kong) ports defined in
+# docker-compose.yml remain published so you can still reach the app on the LAN
+# without going through Caddy. To make traffic flow ONLY through Caddy, add
+# `ports: !reset []` under `app` and `kong` here.
 
 services:
-  app:
-    ports: !reset []
-
-  kong:
-    ports: !reset []
-
   caddy:
     image: caddy:2
     restart: unless-stopped
