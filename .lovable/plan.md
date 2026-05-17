@@ -1,35 +1,26 @@
-The logs identify the real failure: the database image initialized without a `postgres` database role. So the password is no longer the primary issue; every service and migration command is trying to connect as `postgres`, but that role does not exist.
+Real progress: the `postgres` role fix worked. New failure is a chicken-and-egg between GoTrue and our migrations.
 
-Plan:
+**Root cause**
+The first app migration has `REFERENCES auth.users(id)`. The `auth.users` table is created by GoTrue (the `auth` service) on its first start — not by Postgres. Today `auth` `depends_on: db-migrate`, and `db-migrate` references `auth.users`, so migrations always run before the table exists.
 
-1. Confirm the actual admin role created by the database image
-   - Run a one-off check inside the DB container using the likely Supabase admin role:
+**Fix: invert the dependency**
+Let GoTrue bootstrap the `auth` schema first, then run our migrations.
 
-```bash
-docker compose --env-file .env.docker exec -u postgres db \
-  psql -U supabase_admin -d postgres -c '\du'
-```
+1. In `docker-compose.yml`:
+   - Make `auth` depend only on `db` (`service_healthy`), not on `db-migrate`.
+   - Add a healthcheck to `auth` (HTTP GET `/health` on port 9999).
+   - Make `db-migrate` depend on `auth` being healthy instead of just `db`.
+   - Keep `rest`, `realtime`, `storage`, `meta` depending on `db-migrate` completion so the app schema exists before they start.
 
-2. If `supabase_admin` works, update the Docker stack to use it as the DB admin user
-   - Change these places from `postgres` to `supabase_admin`:
-     - `db` healthcheck user
-     - `db-migrate` `DB_URL`
-     - `realtime` `DB_USER`
-     - `meta` `PG_META_DB_USER`
-     - README direct Postgres examples
-
-3. Add a safety init SQL migration for local self-hosting
-   - Make `docker/supabase/init-db/00-roles.sql` create/repair expected internal roles idempotently.
-   - Avoid relying on the missing `postgres` role.
-   - Ensure auth/storage admin roles required by the compose services exist if the image does not create them.
-
-4. Reset and verify from a clean volume
-   - Run:
+2. Reset and verify on the laptop:
 
 ```bash
+git pull
 docker compose --env-file .env.docker down -v --remove-orphans
 docker compose --env-file .env.docker up -d --build
 docker compose --env-file .env.docker logs db-migrate
 ```
 
-Expected result: `db-migrate` completes successfully, then auth/rest/realtime/storage/kong/app start normally.
+Expected: `auth` starts, creates `auth.users`, becomes healthy → `db-migrate` runs successfully → everything else starts.
+
+No app source code changes — Docker config only.

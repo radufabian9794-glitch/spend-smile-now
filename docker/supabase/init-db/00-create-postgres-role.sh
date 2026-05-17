@@ -28,6 +28,20 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     ELSE
       ALTER ROLE supabase_storage_admin WITH LOGIN CREATEROLE PASSWORD '${POSTGRES_PASSWORD}';
     END IF;
+
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'anon') THEN
+      CREATE ROLE anon NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+      CREATE ROLE authenticated NOLOGIN NOINHERIT;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+      CREATE ROLE service_role NOLOGIN NOINHERIT BYPASSRLS;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
+      CREATE ROLE authenticator LOGIN NOINHERIT PASSWORD 'authenticator_pw';
+    END IF;
+    GRANT anon, authenticated, service_role TO authenticator;
   END
   \$\$;
 
@@ -36,4 +50,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
   CREATE SCHEMA IF NOT EXISTS storage AUTHORIZATION supabase_storage_admin;
   GRANT ALL ON SCHEMA auth    TO supabase_auth_admin;
   GRANT ALL ON SCHEMA storage TO supabase_storage_admin;
+  GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+  ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
 EOSQL
