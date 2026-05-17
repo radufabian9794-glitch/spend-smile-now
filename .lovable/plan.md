@@ -1,88 +1,71 @@
-## Problem
+# Why `db-migrate` still fails after the volume wipe
 
-Your Docker build hangs for ~19 minutes on `RUN bun run build`. The log shows Vite finishing successfully:
+The password format is fine, the volume was reset with `down -v`, yet `psql` still gets `FATAL: password authentication failed for user "postgres"`. That means one of these is true:
 
-```
-dist/server/assets/wallet-C-J_DYA0.js  908.07 kB
-✓ built in 5.22s
-```
+1. `db` and `db-migrate` are seeing **different** values for `POSTGRES_PASSWORD` (env-file not actually being applied to one of them).
+2. The Postgres volume was **not** actually wiped (a stray named volume from a different compose project still attached).
+3. The `supabase/postgres` image set a different password during init (e.g. it ran before `POSTGRES_PASSWORD` was visible, falling back to a default).
 
-…and then the process refuses to exit. The bundle is already on disk — something is keeping Node alive after Vite is done.
+Before changing any code, run these read-only checks on the laptop.
 
-## Root cause
-
-The prime suspect is **`vite-plugin-checker`** in `vite.config.ts`. It spawns long-lived TypeScript + ESLint worker threads. The `enableBuild: false` flag tells it to skip the *checks* during `vite build`, but the plugin and its workers are still attached to the Vite process. In a TTY-less Docker build with limited cores, those workers sometimes never receive a clean shutdown signal and the build process hangs until Docker's default timeout.
-
-The Dockerfile also has a second latent bug: it copies `/app/.output` from the build stage, but `vite build` outputs to `dist/` (visible in your log: `dist/server/assets/...`). Once the hang is fixed, the run stage will fail because `.output` doesn't exist. We should fix both in one pass.
-
-## Fix
-
-Three changes, all in infrastructure files — **no `src/` changes**:
-
-**1. Gate `vite-plugin-checker` so it doesn't load during Docker builds.**
-
-Edit `vite.config.ts` to only include the plugin when not in a CI/Docker build:
-
-```ts
-const isDockerBuild = process.env.DOCKER_BUILD === "1";
-
-export default defineConfig({
-  tanstackStart: { server: { entry: "server" } },
-  vite: {
-    plugins: isDockerBuild ? [] : [
-      checker({ /* existing config */ }),
-    ],
-  },
-});
-```
-
-**2. Set `DOCKER_BUILD=1` in the Dockerfile build stage.**
-
-```dockerfile
-FROM oven/bun:1 AS build
-WORKDIR /app
-ENV DOCKER_BUILD=1 CI=1
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
-COPY . .
-RUN bun run build
-```
-
-`CI=1` also helps other tools (including any leftover componentTagger watchers) pick a non-interactive code path.
-
-**3. Fix the run stage to copy the correct output directory.**
-
-The current Dockerfile copies `/app/.output`, which `vite build` does not produce. Replace it with `/app/dist`:
-
-```dockerfile
-FROM oven/bun:1 AS run
-WORKDIR /app
-
-COPY --from=build /app/package.json /app/bun.lock ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/wrangler.jsonc ./wrangler.jsonc
-COPY --from=build /app/src/server.ts ./src/server.ts
-
-ENV NODE_ENV=production
-EXPOSE 3000
-CMD ["bunx", "wrangler", "dev", "--ip", "0.0.0.0", "--port", "3000", "--no-show-interactive-dev-session"]
-```
-
-## Update to `.lovable/plan.md`
-
-Append a new troubleshooting subsection — **"Build hangs after `✓ built in …`"** — under the existing Troubleshooting section. It will document the symptom, the cause (vite-plugin-checker workers + missing `dist` copy), and the three-line fix above. The original Deployment Guide stays untouched.
-
-## Verification
-
-After the changes:
+## Step 1 — confirm both containers see the same password
 
 ```bash
-docker compose --env-file .env.docker build --no-cache app
+docker compose --env-file .env.docker config | grep -E 'POSTGRES_PASSWORD|DB_URL' 
 ```
 
-Expected: `bun run build` finishes in well under a minute, the build stage exits, and the run stage proceeds to copy `dist/` and start wrangler.
+Every occurrence should show the same literal hex value. If any line shows `POSTGRES_PASSWORD: ""` or a different value, the env-file isn't reaching that service.
 
-## Fallback if the hang persists
+Also check at runtime:
 
-If checker isn't the culprit, the next thing to gate is `@cloudflare/vite-plugin`'s post-build worker validation. We can add a `--logLevel debug` flag to `vite build` in the Dockerfile to confirm exactly which plugin is the last one running, then either disable that plugin in Docker mode or switch to `bunx wrangler deploy --dry-run` as the actual build command. I'll only do this if step 1 doesn't resolve it.
+```bash
+docker compose --env-file .env.docker up -d db
+docker compose --env-file .env.docker exec db printenv POSTGRES_PASSWORD
+```
+
+Compare against:
+
+```bash
+grep '^POSTGRES_PASSWORD=' .env.docker
+```
+
+All three must be byte-identical.
+
+## Step 2 — verify the volume was actually wiped
+
+```bash
+docker volume ls | grep -E 'db-data|lovable'
+```
+
+If you see `lovable-selfhost_db-data` listed with an old creation date (not from today), then `down -v` didn't remove it — likely because it was created under a different compose `name:` previously. Force remove:
+
+```bash
+docker compose --env-file .env.docker down -v --remove-orphans
+docker volume rm lovable-selfhost_db-data lovable-selfhost_storage-data 2>/dev/null || true
+docker volume prune -f
+```
+
+## Step 3 — try logging in manually
+
+With `db` running:
+
+```bash
+PW=$(grep '^POSTGRES_PASSWORD=' .env.docker | cut -d= -f2-)
+docker run --rm --network lovable-selfhost_supabase -e PGPASSWORD="$PW" \
+  postgres:15-alpine psql -h db -U postgres -d postgres -c 'select 1;'
+```
+
+- If this **succeeds**, the problem is specifically how `db-migrate` builds its `DB_URL` (likely env-file not applied to that service).
+- If it **fails**, the password stored in the DB is not what's in `.env.docker` — the volume kept old data, or init never ran with the current password.
+
+## Step 4 — what to do based on results
+
+- **Step 1 shows mismatched/empty value for `db-migrate`**: docker compose isn't passing `--env-file` to one-shot `run` invocations. Fix by adding an explicit `env_file: [.env.docker]` block to the `db-migrate` service in `docker-compose.yml`.
+- **Step 2 shows the volume survived**: remove it explicitly (commands above), then `up -d` again.
+- **Step 3 manual login fails**: the DB was initialized with a different password. Wipe again with the explicit `volume rm` commands and bring up fresh.
+
+## Likely outcome
+
+Most common cause in this shape: `lovable-selfhost_db-data` wasn't actually removed (Docker keeps volumes if anything still references them, including a stopped `db-migrate` container from the previous run). The explicit `volume rm` after `down -v --remove-orphans` will resolve it.
+
+Paste back the output of Steps 1–3 and I'll point at the exact fix.
